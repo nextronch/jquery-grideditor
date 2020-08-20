@@ -1,0 +1,105 @@
+{
+    "rows": [
+        {
+            "id":"",
+            "type": "default",
+            "data": {},
+            "cols":[
+                {
+                    "size": "col-12",
+                    "type": "text",
+                    "data": {
+                        "content": "<h1>lorem</h1><br><p>xxxxxx</p>"
+                    }
+                }
+            ]
+        },{
+            "id":"12",
+            "type": "accordion",
+            "data": {
+                "title": "Accordion Title",
+                "open": true
+            },
+            "cols":[
+                {
+                    "size": "col-12",
+                    "type": "text",
+                    "data": {
+                        "content": "<h1>lorem</h1><br><p>xxxxxx</p>"
+                    }
+                }
+            ]
+        },{
+            "id":"13",
+            "type": "accordion",
+            "data": {
+                "title": "Accordion Title #2",
+                "open": false
+            },
+            "cols":[]
+        },{
+            "id":"",
+            "type": "box",
+            "data": {
+                "title": "My Box Title",
+                "color": "blue"
+            },
+            "cols":[
+                {
+                    "size": "col-12",
+                    "type": "text",
+                    "data": {
+                        "content": "<h3>Hello, i am a box</h3><p>And this is my content</p>"
+                    }
+                }
+            ]
+        },{
+            "id":"",
+            "type": "default",
+            "data": {},
+            "cols":[
+                {
+                    "size": "col-12",
+                    "type": "text",
+                    "class": "",
+                    "data": {
+                        "content": ""
+                    },
+                    "rows": [
+                        {
+                            "id":"",
+                            "type": "default",
+                            "data": {},
+                            "cols":[
+                                {
+                                    "size": "col-6",
+                                    "type": "global",
+                                    "data": {
+                                        "id": 117,
+                                        "custom": true
+                                    }
+                                },
+                                {
+                                    "size": "col-6",
+                                    "type": "module",
+                                    "data": {
+                                        "module_id": "news",
+                                        "instance_id": 1,
+                                        "instance_name": "Linker news Tab"
+                                    }
+                                },
+                                {
+                                    "size":"col-12",
+                                    "type":"text",
+                                    "data":{
+                                        "content":""
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

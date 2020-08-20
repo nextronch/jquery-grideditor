@@ -1,0 +1,15 @@
+cfc
+json
+uploads
+css/grideditor.C.*
+css/dropzone*
+css/custom.css
+favicon.ico
+image.png
+js/jquery.grideditor.C.*
+js/jquery.grideditor.R.*
+js/dropzone*
+nextModuleId.txt
+options.json
+render.cfm
+test_*
