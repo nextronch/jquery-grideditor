@@ -109,7 +109,7 @@ custom_filter: [
 ```  
 
 #### idleTime  
-_Int_ = `2000`  
+_Int_ = `1000`  
 Time in **ms** before between the [change](#change) and [change**d**-event](#changed)  
 
 #### plugins  

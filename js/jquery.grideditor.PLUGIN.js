@@ -1,7 +1,7 @@
 (function($,$g) {
     let self = $g.columnPlugins.plugin = { // Enter here your plugin name (!UNIQUE!)
         variable:undefined, // OPTIONAL: Add plugin Variables
-        url: 'cfc/ColPlugin.cfc',
+        url: 'cfc/grid/ColPlugin.cfc',
         t:{"all":{"field1":"Translation For All Languages (used if Language does not have a Translation)"},"de":{"field2":"Übersetzung für Deutsch"},"en":{"field2":"Translation for English"}}, // OPTIONAL: Add somme Translations
         tr:function(l,a){return $g.translate.call(this.t,l,a)}, // OPTIONAL: add custom Functions to shorten the later calls
         initialContent: '{"type":"","name":"","id":"-1"}', // define your inital content / object

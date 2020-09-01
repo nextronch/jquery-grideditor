@@ -1,0 +1,233 @@
+/* [data-ge-content-type="image"] form::after {content:'Ziehe deine Dateien hier hin'} */
+/* to left */
+/*
+ step1: fade down into nothing;
+    - preview box: make position:relative
+    - preview box: overflow:hidden
+    - clipping box: drive down to bottom: 0
+ step2: make smaller, so other elements have space
+    - preview box: width to 0
+*/
+@keyframes fade-left {
+    0% {
+        min-width: 152px;
+    }
+    99% {
+        min-width: 0;
+        margin-left:0;
+        margin-right: 0;
+        min-height:0;
+        position: relative;
+    }
+    100% {
+        max-height: 0;
+        min-width: 0;
+        margin-left:0;
+        margin-right: 0;
+        display: none;
+        position: absolute;
+    }
+}
+@keyframes fade-down {
+    0% {
+        height: 120px;
+    }
+    99% {
+        height: 0;
+        margin: 16px;
+    }
+    100% {
+        display: none;
+        height: 0;
+        margin:0;
+    }
+}
+/* --------------------------------------------- */
+.dropzone {
+	position: relative;
+}
+.dropzone .dz-preview {
+    margin: 0;
+    position: relative;
+    
+    min-width: 152px;
+    min-height: 152px;
+}
+.dropzone .dz-clipping-box {
+	margin: 16px;
+	overflow: hidden;
+    position: absolute;
+    bottom:0px;
+}
+/* --------------------------------------------- */
+
+/* first */
+.dropzone .deleted .dz-clipping-box {
+    overflow: hidden;
+    max-width: initial;
+    max-height: initial;
+    min-width: initial;
+    min-height: initial;
+    animation: fade-down .5s cubic-bezier(0.6, -0.28, 0.74, 0.05) 0s 1 normal forwards;
+    /* margin:0; */
+}
+/* second */
+.dropzone .dz-preview.deleted {
+    /* box-sizing: border-box; */
+
+    overflow: hidden;
+    /* position: relative; */
+    max-width: initial;
+    max-height: initial;
+    min-width: 152px;
+    min-height: 152px;
+    /* background: rgb(248, 170, 0); */
+    /* border: 0px solid red; */
+
+	/* vertical-align:bottom; */
+    /* position: absolute; */
+    /* transition: all linear .1s; */
+    animation: fade-left .5s ease-out .5s 1 normal forwards;
+}
+/* ---------------------------- */
+.c-img-list .c-img-preview {
+    margin: 5px 0 5px 0;
+    width: 100%;
+    min-height: 150px;
+    /* height: 100%; */
+    display: flex;
+    flex-wrap: nowrap;
+    flex-basis: 100%;
+    background: rgb(0 0 0 / .1);
+    border: 1px solid rgba(0,0,0,.4)
+    /* background-clip: content-box; */
+    /* max-height: 150px; */
+}
+.c-img-preview .c-img-move {
+    width:35px;
+    /* min-width: 35px; */
+    /* max-width: 35px; */
+    /* height: 100% 100px; */
+    /* display: flex; */
+    /* flex-grow:1; */
+    /*     border-right: 1px solid black; */
+    background: rgba(0,0,0,.2);
+    display: inline-flex;
+    cursor: pointer;
+}
+.c-img-preview .c-img-image {
+    min-width: 150px;
+    /* width: 150px; */
+    /* max-width: 40%; */
+    /* flex-grow: 4; */
+    /* background: rgba(22, 165, 58,.3); */
+    display: flex;
+    padding: 10px;
+    /* transparenz checker board */
+    background-color: #ccc;
+    background-image:
+		linear-gradient(
+			45deg, 
+			#808080 25%, 
+			transparent 25%), 
+		linear-gradient(
+			-45deg,
+			#808080 25%, 
+			transparent 25%),
+		linear-gradient(
+			45deg, 
+			transparent 75%, 
+			#808080 75%),
+		linear-gradient(
+			-45deg,
+			transparent 75%, 
+            #808080 75%);
+    background-size: 16px 16px;
+    background-position-x: -9px, -9px, -1px, -1px;
+	/* lb,rb,rt,lt */
+    background-position-y: -1px, -9px, -9px, -1px;
+	/* lb,rb,rt,lt */
+    box-shadow: inset black 0 0 8px 0;
+    background-attachment: scroll;
+}
+.c-img-preview [data-c-img-image] {
+    max-width: 100%;
+    max-height: 150px;
+    margin:auto;
+    border: 1px solid black;
+    /* background: rgba(197,255,0,.3); */
+}
+/* .c-img-preview .c-img-inputs,.c-img-preview .c-img-values {
+    padding:10px;
+} */
+/* .c-img-preview .c-img-inputs > * {
+    display: flex;
+} */
+    /* min-width: 200px; */
+    /* width: 30%; */
+/* .c-img-preview .c-img-inputs {
+    flex-grow:6;
+} */
+    /* min-width: 500px; */
+    /* width: 70%; */
+/* .c-img-preview .c-img-values {
+    flex-grow: 20;
+} */
+/* .c-img-preview .c-img-inputs > *, .c-img-preview .c-img-values > * {
+    display: block;
+    width: 100%;
+} */
+
+.c-img-preview .c-img-setting {
+    flex-grow: 1;
+}
+.c-img-preview .c-img-shortactions {
+    float: right;
+    /* vertical-align: center; */
+    background:rgba(187, 65, 65,.3);
+    /*     align-items: center; */
+    /* height:100%; */
+    width: 35px;
+    display: flex;
+    flex-direction: column;
+    /* flex-grow: 1; */
+}
+.c-img-preview .c-img-shortactions > * {
+    background: transparent;
+    border: 0px;
+    padding: 10px 10px 10px 10px;
+    height: 100%;
+    border-left: 1px solid black;
+}
+.c-img-preview .c-img-shortactions > *:not(:last-child) {
+    border-bottom: 1px solid black;
+}
+.c-img-preview .c-img-move > i {
+    color: black;
+    margin: auto;
+}
+/* 
+
+.trans {
+	background-image:
+		linear-gradient(
+			45deg, 
+			#808080 25%, 
+			transparent 25%), 
+		linear-gradient(
+			-45deg,
+			#808080 25%, 
+			transparent 25%),
+		linear-gradient(
+			45deg, 
+			transparent 75%, 
+			#808080 75%),
+		linear-gradient(
+			-45deg,
+			transparent 75%, 
+			#808080 75%);
+	background-size: 20px 20px;
+	background-position-x:-10px, 10px, 0px, 0px;
+	background-position-y:  0px,-10px,10px, 0px;
+} */
+.ge-canvas.ge-editing .ui-sortable-placeholder {max-height: initial;}

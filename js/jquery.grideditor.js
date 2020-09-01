@@ -78,7 +78,7 @@ $.fn.gridEditor = function( options ) {
             'col_tools'         : [],
             'row_tools'         : [],
             'custom_filter'     : '',
-            'idleTime'          : 2000,
+            'idleTime'          : 1000,
             'plugins'           : {}, // custom settings for col/row modules
             'lang'              : 'all',
             'default_col_plugin': Object.keys(jQuery.fn.gridEditor.columnPlugins)[0],
@@ -349,7 +349,11 @@ $.fn.gridEditor = function( options ) {
                     }
                 });
                 createTool(drawer, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
-                    row.append(createColumn(12));
+                    let a = createColumn(12);
+                    a.appendTo(row);
+                    // row.append(a);
+                    getColPlugin(settings.default_col_plugin).init(settings,a.find(".ge-content"));
+                    console.log("Has been appied")
                     init();
                     // self.trigger("webIQGridEditor:change");
                 });
@@ -424,13 +428,18 @@ $.fn.gridEditor = function( options ) {
                 createTool(drawer, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
                     var row = createRow();
                     col.append(row);
-                    row.append(createColumn(12));
+                    let a = createColumn(12);
+                    row.append(a);
+                    getColPlugin(settings.default_col_plugin).init(settings,a.find(".ge-content"))
+                    
                     init();
                     // self.trigger("webIQGridEditor:change");
                 });
 
                 let plugins = getColPlugins()
                 let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugins).map(function(a){return {"name":a,"settings":plugins[a].settings}||a})}
+                console.log("yes?");
+                try{FLK==1;debugger}catch(e){}
                 var details = createDetails(col, settings.col_classes, [...settings.col_tools,col_tools]).appendTo(drawer);
             });
         }
@@ -649,10 +658,11 @@ $.fn.gridEditor = function( options ) {
 
         function createColumn(size) {// size : number
             // console.log(stack(0));
-            return $('<div/>')
+            let a = $('<div/>')
                 .addClass(colClasses.map(function(c){return c+size;}).join(' '))
                 .attr("value-type",settings.default_col_plugin)
-                .append(createDefaultContentWrapper().html(""))
+                .append(createDefaultContentWrapper().html(""));
+            return a;
                 // .find(".ge-content").attr("data-ge-content-type",settings.default_col_plugin)
                 // .append(createDefaultContentWrapper().html(getColPlugin(settings.content_types).initialContent||""))//richtig weil default module genommen wird
             ;
