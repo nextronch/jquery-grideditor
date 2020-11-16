@@ -336,6 +336,39 @@ $.fn.gridEditor = function( options ) {
         function pasteFromLS(){
             return JSON.parse(localStorage.getItem(LS_KEY)||null);
         }
+        function deleteColOrRow(element,resMe,rejMe,col=false){
+            Promise.all(element.children(".row,.column").map(function(index, child){
+                return new Promise(function(res,rej){
+                    deleteColOrRow($(child),res,rej,!col);
+                })
+            })).then(function(){
+                if(col){
+                    let colPlugin = $(element).find('.ge-content').attr('data-ge-content-type');
+                    $.ajax({
+                        url: 'cfc/grid/col'+colPlugin+'.cfc',
+                        data: {
+                            method: 'onDelete',
+                            data: JSON.stringify(getColPlugin(colPlugin).parse(settings,$(element).find('.ge-content')))
+                        },
+                        dataType: 'json',
+                        success: function(data){
+                            if(data == true) {
+                                element.remove();
+                                resMe();
+                            } else {
+                                rejMe();
+                            }
+                        },
+                        error: rejMe
+                    })
+                } else {
+                    element.remove();
+                    resMe();
+                }
+            }).catch(function(){
+                console.log("stoped");
+            });
+        }
 
         function createRowControls() {
             canvas.find('.row').each(function() {
@@ -349,17 +382,6 @@ $.fn.gridEditor = function( options ) {
                 createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
                     details.toggle();
                 });
-                createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
-                    
-                });
-                createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
-                    if (window.confirm('Delete row?')) {
-                        row.slideUp(function() {
-                            row.remove();
-                        });
-                        self.trigger("webIQGridEditor:change");
-                    }
-                });
                 createTool(more, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
                     let a = createColumn(12);
                     a.appendTo(row);
@@ -368,6 +390,19 @@ $.fn.gridEditor = function( options ) {
                     console.log("Has been appied")
                     init();
                     // self.trigger("webIQGridEditor:change");
+                });
+                createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
+                    // add more
+                });
+                createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
+                    if (window.confirm('Delete row?')) {
+                        deleteColOrRow(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
+                        
+                        // row.slideUp(function() {
+                        //     row.remove();
+                        // });
+                        // self.trigger("webIQGridEditor:change");
+                    }
                 });
                 drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
                 // <!--- § create rows --->
@@ -426,19 +461,6 @@ $.fn.gridEditor = function( options ) {
                     details.toggle();
                 });
 
-                createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
-                    if (window.confirm('Delete column?')) {
-                        col.animate({
-                            opacity: 'hide',
-                            width: 'hide',
-                            height: 'hide'
-                        }, 400, function() {
-                            col.remove();
-                            self.trigger("webIQGridEditor:change");
-                        });
-                    }
-                });
-
                 createTool(more, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
                     var row = createRow();
                     col.append(row);
@@ -449,6 +471,20 @@ $.fn.gridEditor = function( options ) {
                     init();
                     // self.trigger("webIQGridEditor:change");
                 });
+
+                createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
+                    if (window.confirm('Delete column?')) {
+                        deleteColOrRow(col,function(){self.trigger("webIQGridEditor:change")},function(){},true);
+                        // col.animate({
+                        //     opacity: 'hide',
+                        //     width: 'hide',
+                        //     height: 'hide'
+                        // }, 400, function() {
+                            
+                        // });
+                    }
+                });
+
                 createTool(more, 'Copy', '','fas fa-copy',function(){
                     let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
                     __c = plugin.onCopy(settings,$(col).find('.ge-content'));
