@@ -14,7 +14,7 @@ function trace(msg){try{throw new Error()}catch(e){console.log(`Tracking Occured
 
 /** @namespace grideditor */
 $.fn.gridEditor = function( options ) {
-    function stack(fromtop=0){let a;try{throw new Error()}catch(e){a=e.stack.split('\n').filter(function(b,i){return i>fromtop+2}).map(function(b){return b.replace(/^\W+at\W(?:[^(]*\((.*)\)|(.*))$/gm,'$1$2')});}return a;}
+    stack=$.fn.gridEditor.stack;
     /** grideditor 
      * @type {grideditor}
      */
@@ -50,7 +50,7 @@ $.fn.gridEditor = function( options ) {
     /** Initialize plugin */
 
     function getColPlugin(type) {
-        if($.fn.gridEditor.columnPlugins[type]==undefined){debugger;throw new Error(`unknown Grideditor Column Plugin '${type}'. Include the plugin you require.`)}
+        if($.fn.gridEditor.columnPlugins[type]==undefined){throw new Error(`unknown Grideditor Column Plugin '${type}'. Include the plugin you require.`)}
         return $.fn.gridEditor.columnPlugins[type];
     }
     function getColPlugins() {
@@ -329,6 +329,13 @@ $.fn.gridEditor = function( options ) {
         function getHTML(){
             return canvas.html();
         }
+        const LS_KEY = location.host.split('.').reverse().join('.')+'.grideditor.clipboard';
+        function copyToLS(type,data){
+            localStorage.setItem(LS_KEY,JSON.stringify({type:type,data:data}));
+        }
+        function pasteFromLS(){
+            return JSON.parse(localStorage.getItem(LS_KEY)||null);
+        }
 
         function createRowControls() {
             canvas.find('.row').each(function() {
@@ -336,11 +343,16 @@ $.fn.gridEditor = function( options ) {
                 if (row.find('> .ge-tools-drawer').length) { return; }
 
                 var drawer = $('<div class="ge-tools-drawer" />').prependTo(row);
+                let more = $('<div class=\"dropdown-menu\" />');
+
                 createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
                 createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
                     details.toggle();
                 });
-                createTool(drawer, 'Remove row', '', 'fa fa-trash-alt', function() {
+                createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
+                    
+                });
+                createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
                     if (window.confirm('Delete row?')) {
                         row.slideUp(function() {
                             row.remove();
@@ -348,7 +360,7 @@ $.fn.gridEditor = function( options ) {
                         self.trigger("webIQGridEditor:change");
                     }
                 });
-                createTool(drawer, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
+                createTool(more, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
                     let a = createColumn(12);
                     a.appendTo(row);
                     // row.append(a);
@@ -357,6 +369,7 @@ $.fn.gridEditor = function( options ) {
                     init();
                     // self.trigger("webIQGridEditor:change");
                 });
+                drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
                 // <!--- § create rows --->
                 // {"name":"type","type":"dropdown","options":["default",{"name":"accordion","settings":[{"name":"open","type":"switch","default":0},{"name":"title","type":"input"}]},{"name":"box","settings":[{"name":"color","type":"dropdown","options":["red","blue"]}]}]}
                 let plugins = getRowPlugins();
@@ -372,6 +385,7 @@ $.fn.gridEditor = function( options ) {
                 if (col.find('> .ge-tools-drawer').length) { return; }
 
                 var drawer = $('<div class="ge-tools-drawer" />').prependTo(col);
+                let more = $("<div class=\"dropdown-menu\"></div>");
 
                 createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
 
@@ -412,7 +426,7 @@ $.fn.gridEditor = function( options ) {
                     details.toggle();
                 });
 
-                createTool(drawer, 'Remove col', '', 'fa fa-trash-alt', function() {
+                createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
                     if (window.confirm('Delete column?')) {
                         col.animate({
                             opacity: 'hide',
@@ -425,7 +439,7 @@ $.fn.gridEditor = function( options ) {
                     }
                 });
 
-                createTool(drawer, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
+                createTool(more, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
                     var row = createRow();
                     col.append(row);
                     let a = createColumn(12);
@@ -435,6 +449,30 @@ $.fn.gridEditor = function( options ) {
                     init();
                     // self.trigger("webIQGridEditor:change");
                 });
+                createTool(more, 'Copy', '','fas fa-copy',function(){
+                    let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
+                    __c = plugin.onCopy(settings,$(col).find('.ge-content'));
+                    if(__c == false){
+                        return "aborted copy";
+                    }
+                    if(__c == true){
+                        __c = plugin.parse(settings,$(col).find('.ge-content'));
+                    }
+                    __t = 'col';
+                    __p = $(col).find('.ge-content').attr('data-ge-content-type');
+                    // __c plugin>CONFIG
+                    // __t plugin>COL/ROW TYPE
+                    // __p plugin
+                    // {plugin:__p,type:__t,data:__c}
+                    copyToLS(__t,{plugin:__p,data:__c})
+                    // debugger;
+                })
+
+                createTool(more, 'Paste', '', 'fas fa-paste', function(){
+
+                })
+
+                drawer.append($("<div class=\"btn-group\"><a class=\"ge-add-row\" type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>").append(more));
 
                 let plugins = getColPlugins()
                 let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugins).map(function(a){return {"name":a,"settings":plugins[a].settings}||a})}
@@ -467,7 +505,7 @@ $.fn.gridEditor = function( options ) {
         }
 
         function createTool(drawer, title, className, iconClass, eventHandlers) {
-            var tool = $('<a title="' + title + '" class="' + className + '"><i class="' + iconClass + '"></i></a>')
+            var tool = $('<a title="' + title + '" class="' + className + '"><i class="' + iconClass + '"></i> '+(drawer.hasClass("dropdown-menu")?title:'')+'</a>')
                 .appendTo(drawer)
             ;
             if (typeof eventHandlers == 'function') {
@@ -830,5 +868,7 @@ $.fn.gridEditor.translate=function(lang,identity,type){
     return a[lang]&&a[lang][identity]||a['all']&&a['all'][identity]||`untranslated["${lang}"]["${identity}"]`;
 }
 $.fn.gridEditor.silent=function(...a){if(debug){console.log(`called from: ${stack(1)}`,...a)}}
+$.fn.gridEditor.softError=function(...a){alert(['Error Occured:',...a].join(' '));}
+$.fn.gridEditor.stack=function(fromtop=0){let a;try{throw new Error()}catch(e){a=e.stack.split('\n').filter(function(b,i){return i>fromtop+2}).map(function(b){return b.replace(/^\W+at\W(?:[^(]*\((.*)\)|(.*))$/gm,'$1$2')});}return a;}
 })( jQuery , true);
 

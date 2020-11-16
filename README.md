@@ -27,15 +27,15 @@ At least one [columnPlugin](#column-plugins) and one [rowPlugin](#row-plugins)
 ## Initiation
 Inintiation will use a jQuery object and [settings](#settings)  
 ```javascript
-jQuery(htmlElementInDocument).gridEditor(settings);
-jQuery(htmlElementInDocument).gridEditor(settings).on('webIQGridEditor:changed',function(){
+jQuery(DocumentNode_Or_HTMLElementInDocument).gridEditor(settings);
+jQuery(DocumentNode_Or_HTMLElementInDocument).gridEditor(settings).on('webIQGridEditor:changed',function(){
     /* save changes. get json [mime: text/plain] with this: */
     $(this).gridEditor('getJSON')
 });
 ```
 
 ### Settings
-_Plain Object{ }_  
+_Plain Object { }_  
 Here is a list of usable settings for the gridEditor that can be set in [initiation](#initiation) and used in [plugins](#plugins--extensions)  
 
 #### new_row_layouts  
@@ -178,7 +178,7 @@ The Plugin gets Appended as an _Plain Object{ }_ to `jQuery.fn.gridEditor.<row/c
 Required: _true_  
 Type: _Array( AttributeContainer )_  
 Lookup _**AttributeContainer**_ in [col_tools & row_tools](#col_tools--row_tools)  
-Do not use `position`
+Do not use `position`  
 
 ## Column Plugins  
 ```javascript
@@ -191,7 +191,9 @@ Do not use `position`
         firstInit: function(resolve,reject){/* ... */},
         init: function(settings, contentArea, isFromServer){/* ... */},
         deinit: function(settings, contentArea){/* ... */},
-        parse: function(settings,contentArea){ return {/* ... */} },
+        parse: function(settings, contentArea){ return {/* ... */} },
+        onCopy: function(settings, contentArea){ return {/* ... */} },
+        onPaste: function(settings, contentArea, data){/* ... */},
     }
 })(jQuery,jQuery.fn.gridEditor)
 ```
@@ -217,7 +219,7 @@ Required: _false_
 Expected _return_ Value: _none_  
 Arguments:  
 0 resolve: Function, call this function if the Plugin Initiation Suceed  
-1 reject: Function, call this function if the Plugin Initiation Failes  
+1 reject: Function, call this function if the Plugin Initiation Failed  
 2 settings: [settings object](#settings) from initiation   
 ```javascript
 firstInit: function(resolve,reject,settings){
@@ -240,7 +242,7 @@ firstInit: function(resolve,reject,settings){
 }
 ```
 **important**: the plugin needs to call `resolve()` or `reject()`  
-if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an **ERROR**  
+if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an **HARD ERROR**  
 
 #### init
 The most important function, the "Creator". His Job is to Build the plugin into the container ( _contentArea_ ).  
@@ -272,7 +274,7 @@ init:function(settings,contentArea,isFromServer){
 `let defaults = JSON.parse(contentArea.find('[name=plugin]').val()||self.initialContent);`  
 
 #### deinit
-This will destroy the inside of the plugin container  
+This will destroy the inside of the plugin container, will be called on "delete" and "change" of plugin  
 Required: _true_  
 Expected _return_ Value: _none_  
 Arguments:  
@@ -305,6 +307,47 @@ parse: function(settings, contentArea){
 ```
 The returned value will be stringified to send the Data  
 
+#### onCopy  
+This function is the prework for copying the pluign  
+Required: _false_  
+Expected _return_ Value: _Boolean | Plain Object { any }_  
+Arguments:  
+0 settings: [settings object](#settings) from initiation  
+1 contentArea: _jQuery Object_ containing the element, where the inside is 100% for the plugin  
+```javascript
+onCopy: function(settings, contentArea){
+    return $.extend(
+        {},
+        self.parse(contentArea),
+        (contentArea.find("[name=myField]").val() == "Inital Content")?{ "myField": "@" }:{ }
+    )
+}
+```  
+If _True_ is returned, the data copied is from _parse()_  
+If _False_ is returned, this plugin is not able to be copied  
+
+#### onPaste  
+This function resolves the data from copy  
+Required: _false_  
+Arguments:  
+0 settings: [settings object](#settings) from initiation  
+1 contentArea: _jQuery Object_ containing the Element where to put the new Container  
+2 data: _Plain Object { Parsed Plugin }_, object to be used to rebuild Plugin  
+```javascript
+onPaste: function(settings, contentArea, data){
+    if(data.myField == "@"){
+        data = self.initialContent;
+    }
+    let content = `<label>my Field</label><input type="text" name="myField" value="${data.myField}>`;
+    content=$(content);
+    content.appendTo(contentArea);
+    // append events
+    contentArea.find("[name=myField]").on("change",function(){ 
+        self.element.trigger("webIQGridEditor:change");
+    });
+}
+```
+
 ### Translation  
 Required: _false_  
 You can use custom translations for your plugin.  
@@ -336,6 +379,24 @@ Order of language
 1. t\[[settings.lang](#lang)\]  
 2. t\['all'\]  
 3. 'untranslated\[ _language_ \]\[ _key_ \]'  
+
+### Other Functions  
+These Functions can be accessed from the most locations of the code.  
+#### silent  
+`$.fn.gridEditor.silent(...)`  
+Log content **IF** in _jQuery.grideditor.js_ the 2nd argument of the last line is `true` (also called "debug-mode")  
+
+#### indicateError  
+`$(<gridElement>).data('gridEditor').indicateError(message, error, stack)`  
+indicates An Hard Error, that stop everything from doing anything (crash like)  
+message: cause of Error  
+error: type of error or undefined  
+stack: stacktrace of error (can be recieved with the next function)  
+Also Achivable by unhandled `throw Error(...)` and unhandled `Promise.reject(...)`  
+
+#### stack   
+`$.fn.gridEditor.stack(level?)`  
+returns the stack from current call (level = 0) or higher (level = n) in an Array  
 
 ---  
 Written by Thomas Ensner
