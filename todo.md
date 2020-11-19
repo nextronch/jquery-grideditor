@@ -8,18 +8,21 @@
 ```json
 {dataType:"row",data:{...}}
 ```
-- beim kopieren funktion
-- beim löschen: deinit -> delete
++ beim kopieren funktion
+- beim löschen: nicht deinit sondern `delete`
 
-- softErrors: alert
++ softErrors: alert
 
 - create delete für alles   
-- staged delete für children  
-- handler onDelete für row und col 
-- handler onCopy und onPaste für row und col
++ staged delete für children  
++ handler onDelete für col 
+- handler onCopy und onPaste für col
 
 - schnitstelle aufbauen  
 
 ## module
 - module: neue instanz ID ???
 
+## Encounters
+> nicht so bauen, dass externe irgendwelche files verschieben oder löschen können
+die bilder haben keine fixe uuid

@@ -15,6 +15,7 @@ function trace(msg){try{throw new Error()}catch(e){console.log(`Tracking Occured
 /** @namespace grideditor */
 $.fn.gridEditor = function( options ) {
     stack=$.fn.gridEditor.stack;
+    softError=$.fn.gridEditor.softError;
     /** grideditor 
      * @type {grideditor}
      */
@@ -333,9 +334,15 @@ $.fn.gridEditor = function( options ) {
         function copyToLS(type,data){
             localStorage.setItem(LS_KEY,JSON.stringify({type:type,data:data}));
         }
+        function whatIsInLS(){
+            return pasteFromLS().type;
+        }
         function pasteFromLS(){
             return JSON.parse(localStorage.getItem(LS_KEY)||null);
         }
+        function formatToPaste(){}
+        _G_cca.push(new ChromeClickAction({"whatIsInLS":whatIsInLS,"pasteFromLS":pasteFromLS}))
+
         function deleteColOrRow(element,resMe,rejMe,col=false){
             Promise.all(element.children(".row,.column").map(function(index, child){
                 return new Promise(function(res,rej){
@@ -392,8 +399,33 @@ $.fn.gridEditor = function( options ) {
                     // self.trigger("webIQGridEditor:change");
                 });
                 createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
-                    // add more
+                    // __d = getJSON(row);
+                    // console.log(__d);
+                    let __c = getJSON(row);
+                    copyToLS("col",__c);
+                    // * create external function to take over when copying
+                    // let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
+                    // __c = plugin.onCopy(settings,$(col).find('.ge-content'));
+                    // if(__c == false){
+                    //     return "aborted copy";
+                    // }
+                    // if(__c == true){
+                    //     __c = plugin.parse(settings,$(col).find('.ge-content'));
+                    // }
+                    // __t = 'col';
+                    // __p = $(col).find('.ge-content').attr('data-ge-content-type');
+                    // copyToLS(__t,{plugin:__p,data:__c})
+                    // * __c plugin>CONFIG
+                    // * __t plugin>COL/ROW TYPE
+                    // * __p plugin
+                    // * {plugin:__p,type:__t,data:__c}
+                    // * debugger;
                 });
+                createTool(more, 'Paste Col', '', 'fa fa-paste', function(){
+                    if(whatIsInLS()=="col"){
+                        // how would i do that
+                    }
+                })
                 createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
                     if (window.confirm('Delete row?')) {
                         deleteColOrRow(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
@@ -480,32 +512,35 @@ $.fn.gridEditor = function( options ) {
                         //     width: 'hide',
                         //     height: 'hide'
                         // }, 400, function() {
-                            
                         // });
                     }
                 });
 
                 createTool(more, 'Copy', '','fas fa-copy',function(){
-                    let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
-                    __c = plugin.onCopy(settings,$(col).find('.ge-content'));
-                    if(__c == false){
-                        return "aborted copy";
-                    }
-                    if(__c == true){
-                        __c = plugin.parse(settings,$(col).find('.ge-content'));
-                    }
-                    __t = 'col';
-                    __p = $(col).find('.ge-content').attr('data-ge-content-type');
-                    // __c plugin>CONFIG
-                    // __t plugin>COL/ROW TYPE
-                    // __p plugin
-                    // {plugin:__p,type:__t,data:__c}
-                    copyToLS(__t,{plugin:__p,data:__c})
-                    // debugger;
+                    // console.log(col);
+                    // console.log(__c);
+                    let __c = getJSON(col);
+                    copyToLS("col",__c)
+                    // let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
+                    // __c = plugin.onCopy(settings,$(col).find('.ge-content'));
+                    // if(__c == false){
+                    //     return "aborted copy";
+                    // }
+                    // if(__c == true){
+                    //     __c = plugin.parse(settings,$(col).find('.ge-content'));
+                    // }
+                    // __t = 'col';
+                    // __p = $(col).find('.ge-content').attr('data-ge-content-type');
+                    // copyToLS(__t,{plugin:__p,data:__c})
+                    // * __c plugin>CONFIG
+                    // * __t plugin>COL/ROW TYPE
+                    // * __p plugin
+                    // * {plugin:__p,type:__t,data:__c}
+                    // * debugger;
                 })
 
                 createTool(more, 'Paste', '', 'fas fa-paste', function(){
-
+                    // § tbd
                 })
 
                 drawer.append($("<div class=\"btn-group\"><a class=\"ge-add-row\" type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>").append(more));
@@ -804,12 +839,15 @@ $.fn.gridEditor = function( options ) {
             return Math.min(max, Math.max(min, input));
         }
 
-        function getJSON(){
+        function getJSON(element=null){
+            if(element == null){
+                element = canvas.children();
+            }
             runFilter();
-            // var html = getHTML();
             function parseCols(col) {
                 let key = 'value-type-';
                 // let plugin = 'value-plugin-';
+                // console.log("col",col,col.children)
                 rows=Array.from(col.children);rows=rows.filter(function(b){return b.classList.contains("row")});if(rows.length!=0){rows=parseRows(rows).rows;}
                 let l = {
                     "size": Array.from(col.classList).filter(function(b){return b.startsWith("col-")}).join(' '),
@@ -829,6 +867,7 @@ $.fn.gridEditor = function( options ) {
             function parseRows(x){
                 let key = 'value-type-';
                 return { "rows": x.map(function(row){
+                    // console.log("row",row,row.children)
                     let l = {
                         "id": row.getAttribute("id"),
                         "type": row.getAttribute("value-type"),
@@ -841,8 +880,19 @@ $.fn.gridEditor = function( options ) {
                 }) }
             }
             // let a=$(html).get().filter(function(b){return !(b instanceof Text)}) // filter all TextElements between html (\n)
-            let a=canvas.children().get().filter(function(b){return !(b instanceof Text)}) // filter all TextElements between html (\n)
-            let v=parseRows(a);
+            let v,a=element.get().filter(function(b){return !(b instanceof Text)}) // filter all TextElements between html (\n)
+            if($(a).hasClass("row")){
+                v=parseRows(a);
+            } else if ($(a).hasClass("column")) {
+                // if(a.length > 1){a=a[0]}
+                v=parseCols(a[0]);
+            } else {
+                console.log("neither row nor column")
+            }
+            if(v == undefined){
+                softError(...a);
+            }
+            
             return JSON.stringify(v);
         }
 
@@ -877,7 +927,7 @@ $.fn.gridEditor = function( options ) {
                 self.parent().find(".ge-mainControls").replaceWith('');
                 self.html("<p><sup>jquery.grideditor.js</sup><br><strong>An Error Occured. Please contact the Administrator.</strong></p>");"</p><p>";
             }
-            $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:''}`).appendTo(self);
+            $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:(error&&error.error&&error.error.stack?error.error.stack.replace("<","&lt;").replace(">","&gt;").replace("\n","<br>"):'')}`).appendTo(self);
         }
 
         /* EVENT HANDLING */
@@ -904,7 +954,7 @@ $.fn.gridEditor.translate=function(lang,identity,type){
     return a[lang]&&a[lang][identity]||a['all']&&a['all'][identity]||`untranslated["${lang}"]["${identity}"]`;
 }
 $.fn.gridEditor.silent=function(...a){if(debug){console.log(`called from: ${stack(1)}`,...a)}}
-$.fn.gridEditor.softError=function(...a){alert(['Error Occured:',...a].join(' '));}
+$.fn.gridEditor.softError=function(...a){console.log('Error Occured:',a);alert(['Error Occured:',...a].join(' '));}
 $.fn.gridEditor.stack=function(fromtop=0){let a;try{throw new Error()}catch(e){a=e.stack.split('\n').filter(function(b,i){return i>fromtop+2}).map(function(b){return b.replace(/^\W+at\W(?:[^(]*\((.*)\)|(.*))$/gm,'$1$2')});}return a;}
-})( jQuery , true);
+})( jQuery , true );
 
