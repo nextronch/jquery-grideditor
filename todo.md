@@ -41,3 +41,21 @@ this = ".ge-content"
     createColControls(this);
     makeSortable(this);
 ```
+Math.round(ClientWidth / MAX_COL_SIZE) 
+tonextNumber: valid_col_sizes -> toClass(currentView)
+```javascript
+f.find('.column').resizable({
+    handles: "e",
+    resize: function(ev,ui){
+        let maxWidth = ui.element.parent().get(0).getBoundingClientRect().width;
+        let 
+        /*
+        ui:
+        element: $jq
+        helper: element
+        originalElement: element
+        size: {width, height}
+        */
+    }
+})
+```

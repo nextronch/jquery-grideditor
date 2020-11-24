@@ -238,7 +238,7 @@ $.fn.gridEditor = function( options ) {
                 })
                 if(!a.filter(function(c){return c.status=="rejected"}).length){
                     canvas.find('.ge-content').each(function(){
-                        initColPlugin.call(this,true);
+                        initColPlugin.call(this,{isFromServer:true});
                     });
                 }
                 console.groupEnd();
@@ -271,7 +271,9 @@ $.fn.gridEditor = function( options ) {
             }
         }
         
-        function initColPlugin(isFromServer=false) {
+        function initColPlugin({isFromServer,initByPaste}) {
+            if(isFromServer == undefined){isFromServer=false}
+            if(initByPaste == undefined){initByPaste=false}
             // if ($(this).hasClass('ge-rte-active')) { return; }
             let plugin = $(this).parent().attr('value-type');
             console.log("initColPlugin: %s",plugin);
@@ -279,7 +281,11 @@ $.fn.gridEditor = function( options ) {
             if (colPlugin) {
                 $(this).addClass('ge-rte-active', true);
                 try{
-                    colPlugin.init(settings, $(this), isFromServer);
+                    if(initByPaste && colPlugin.onPaste!=undefined){
+                        colPlugin.onPaste(settings, $(this), isFromServer)
+                    } else {
+                        colPlugin.init(settings, $(this), isFromServer);
+                    }
                     colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
                     colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
                     $(this).attr("data-ge-content-type",plugin);
@@ -361,7 +367,7 @@ $.fn.gridEditor = function( options ) {
                         createColControls(prototypeElement);
                         makeSortable(prototypeElement);
                         prototypeElement.find(".ge-content").each(function(){
-                            initColPlugin.call(this, true);
+                            initColPlugin.call(this, {isFromServer:true,initByPaste:true});
                         });
                         self.trigger("webIQGridEditor:change");
                     },
@@ -812,6 +818,45 @@ $.fn.gridEditor = function( options ) {
             function sortStop(e, ui) {
                 self.trigger("webIQGridEditor:change");
             }
+
+            element.find('.column').addBack('.column').resizable({
+                handles: "e",
+                resize: function(ev,ui){
+                    const s = {cc:{}};
+                    s.mW = ui.element.parent().get(0).getBoundingClientRect().width;
+                    s.cW = ui.size.width;
+                    // s.MI = settings.valid_col_sizes.sort((a,b)=>a-b)[0];
+                    // s.MX = settings.valid_col_sizes.sort((a,b)=>b-a)[0];
+                    s.MX = MAX_COL_SIZE;
+                    s.cc.all = colClasses;
+                    s.cc.key = colClasses[curColClassIndex];
+                    s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
+
+                    const r = {};
+                    r.apr = s.cW / (s.mW / s.MX);
+                    r.est = Math.round(r.apr);
+                    r.closestTo = function(value,list){
+                        // list = list.filter((a,b)=>b%2==1);
+                        let index = list.indexOf(value);
+                        if (index==-1){
+                            let low = (list.filter(function(v){return v>value})[0]);
+                            let upper = (list.reverse().filter(function(v){return v<value})[0]);
+                            if(!(low && upper)){return low||upper;}
+                            return upper-value < value-low?upper:low;
+                        } else {
+                            return list[index];
+                        }
+                    }
+                    let x = r.closestTo(r.est,settings.valid_col_sizes);
+                    if(x!=s.cc.index){
+                        ui.element.removeClass(s.cc.key+s.cc.index);
+                        ui.element.addClass(s.cc.key+x);
+                    }
+                },
+                stop: function(ev,ui){
+                    ui.element.removeAttr('style');
+                }
+            })
         }
 
         function removeSortable(c) {
