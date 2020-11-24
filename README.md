@@ -242,7 +242,7 @@ firstInit: function(resolve,reject,settings){
 }
 ```
 **important**: the plugin needs to call `resolve()` or `reject()`  
-if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an **HARD ERROR**  
+if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an [**HARD ERROR** (indicateError)](#indicateError)  
 
 #### init
 The most important function, the "Creator". His Job is to Build the plugin into the container ( _contentArea_ ).  
@@ -398,5 +398,8 @@ Also Achivable by unhandled `throw Error(...)` and unhandled `Promise.reject(...
 `$.fn.gridEditor.stack(level?)`  
 returns the stack from current call (level = 0) or higher (level = n) in an Array  
 
+#### softError  
+`$.fn.gridEditor.softError(...)`  
+displays an error, without stoping anything
 ---  
 Written by Thomas Ensner
