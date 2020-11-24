@@ -830,8 +830,9 @@ $.fn.gridEditor = function( options ) {
                     s.MX = MAX_COL_SIZE;
                     s.cc.all = colClasses;
                     s.cc.key = colClasses[curColClassIndex];
-                    s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
-
+                    
+                    try{s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
+                    } catch(e){debugger}
                     const r = {};
                     r.apr = s.cW / (s.mW / s.MX);
                     r.est = Math.round(r.apr);
@@ -840,7 +841,7 @@ $.fn.gridEditor = function( options ) {
                         let index = list.indexOf(value);
                         if (index==-1){
                             let low = (list.filter(function(v){return v>value})[0]);
-                            let upper = (list.reverse().filter(function(v){return v<value})[0]);
+                            let upper = (list.filter(function(v){return v<value}).pop())||s.MX;
                             if(!(low && upper)){return low||upper;}
                             return upper-value < value-low?upper:low;
                         } else {
@@ -855,6 +856,7 @@ $.fn.gridEditor = function( options ) {
                 },
                 stop: function(ev,ui){
                     ui.element.removeAttr('style');
+                    self.trigger("webIQGridEditor:changed");
                 }
             })
         }
