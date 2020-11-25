@@ -69,13 +69,13 @@
   -ms-user-select: none;
   user-select: none;
   background: blue;
-  margin: 0 -5px 5px;
+  margin: 0 -10px 10px;
   display: block;
-  width: calc(100% + 2 * 5px);
+  width: calc(100% + 2 * 10px);
 }
 .ge-canvas.ge-editing .ge-tools-drawer > * {
   display:inline-block;
-  padding: 5px;
+  padding: 5px 10px;
   vertical-align: initial;
 }
 .ge-canvas.ge-editing .ge-tools-drawer a:hover {
@@ -110,15 +110,15 @@
   width: 80px;
 }
 .ge-canvas.ge-editing .row {
-  background-color: #efefef;
-  border: 1px solid #999999;
-  padding: 0 5px 5px;
-  margin-bottom: 5px;
+  background-color: #ffffff;
+  border: 1px solid rgba(33, 37, 41, 0.3);
+  padding: 0 10px 10px;
+  margin-bottom: 10px;
   margin-left: 0;
   margin-right: 0;
 }
 .ge-canvas.ge-editing .row > .ge-tools-drawer {
-  background: #e5e5e5;
+  background: #f8f8f8;
 }
 .ge-canvas.ge-editing .row > .ge-tools-drawer > a,
 .ge-canvas.ge-editing .row > .ge-tools-drawer > .btn-group a {
@@ -126,19 +126,19 @@
 }
 .ge-canvas.ge-editing .row > .ge-tools-drawer > a.ge-add-column,
 .ge-canvas.ge-editing .row > .ge-tools-drawer > .btn-group a.ge-add-column{
-  color: #178acc;
+  color: #0e4f8f;
 }
 .ge-canvas.ge-editing .column {
-  background-color: rgba(47, 164, 231, 0.15);
-  border: 1px solid #2FA4E7;
-  padding: 0 5px 5px;
+  background-color: #ffffff;
+  border: 1px solid rgba(29, 84, 138, 0.6);
+  padding: 0 10px 10px;
 }
 .ge-canvas.ge-editing .column > .ge-tools-drawer {
-  background: #afd5ea;
+  background: rgba(29, 84, 138, 0.3);
 }
 .ge-canvas.ge-editing .column > .ge-tools-drawer > a,
 .ge-canvas.ge-editing .column > .ge-tools-drawer > .btn-group a {
-  color: #178acc;
+  color: #0e4f8f;
 }
 .ge-canvas.ge-editing .column > .ge-tools-drawer > a.ge-add-row,
 .ge-canvas.ge-editing .column > .ge-tools-drawer > .btn-group a.ge-add-row {
@@ -270,4 +270,45 @@
 .ge-row-icon [display="12"] {
   flex: 0 0 100%;
   max-width: 100%;
+}
+
+/* resize handles */
+.ui-resizable-handle {
+  position: absolute;
+  font-size: 0.1px;
+  display: block;
+  -ms-touch-action: none;
+  touch-action: none;
+}
+.ui-resizable-disabled .ui-resizable-handle,
+.ui-resizable-autohide .ui-resizable-handle {
+  display: none;
+}
+.ui-resizable-n {
+  cursor: n-resize;
+  height: 7px;
+  width: 100%;
+  top: -5px;
+  left: 0;
+}
+.ui-resizable-s {
+  cursor: s-resize;
+  height: 7px;
+  width: 100%;
+  bottom: -5px;
+  left: 0;
+}
+.ui-resizable-e {
+  cursor: e-resize;
+  width: 7px;
+  right: -5px;
+  top: 0;
+  height: 100%;
+}
+.ui-resizable-w {
+  cursor: w-resize;
+  width: 7px;
+  left: -5px;
+  top: 0;
+  height: 100%;
 }

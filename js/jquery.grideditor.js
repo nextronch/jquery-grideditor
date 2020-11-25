@@ -271,9 +271,9 @@ $.fn.gridEditor = function( options ) {
             }
         }
         
-        function initColPlugin({isFromServer,initByPaste}) {
-            if(isFromServer == undefined){isFromServer=false}
-            if(initByPaste == undefined){initByPaste=false}
+        function initColPlugin(option={}) {
+            if(option.isFromServer == undefined){option.isFromServer=false}
+            if(option.initByPaste == undefined){option.initByPaste=false}
             // if ($(this).hasClass('ge-rte-active')) { return; }
             let plugin = $(this).parent().attr('value-type');
             console.log("initColPlugin: %s",plugin);
@@ -281,10 +281,10 @@ $.fn.gridEditor = function( options ) {
             if (colPlugin) {
                 $(this).addClass('ge-rte-active', true);
                 try{
-                    if(initByPaste && colPlugin.onPaste!=undefined){
-                        colPlugin.onPaste(settings, $(this), isFromServer)
+                    if(option.initByPaste && colPlugin.onPaste!=undefined){
+                        colPlugin.onPaste(settings, $(this), option.isFromServer)
                     } else {
-                        colPlugin.init(settings, $(this), isFromServer);
+                        colPlugin.init(settings, $(this), option.isFromServer);
                     }
                     colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
                     colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
