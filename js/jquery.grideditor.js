@@ -14,83 +14,189 @@ function trace(msg){try{throw new Error()}catch(e){console.log(`Tracking Occured
 
 /** @namespace grideditor */
 $.fn.gridEditor = function( options ) {
-    stack=$.fn.gridEditor.stack;
-    softError=$.fn.gridEditor.softError;
+    let stack=$.fn.gridEditor.stack;
+    let softError=$.fn.gridEditor.softError;
     /** grideditor 
-     * @type {grideditor}
+     * @type {Object}
      */
     var self = this;
     var grideditor = self.data('grideditor');
     var enableSave=true;
     /** Methods **/
-    if (arguments[0] == 'getHtml') {
-        if (grideditor) {
-            grideditor.deinit();
-            var html = self.html();
-            grideditor.init();
-            return html;
-        } else {
-            return self.html();
+    function handleMainArguments(args){
+        if (args[0] == 'getHtml') {
+            if (grideditor) {
+                grideditor.deinit();
+                let html = self.html();
+                grideditor.init();
+                return html;
+            } else {
+                return self.html();
+            }
         }
-    }
-    
-    if(arguments[0] == 'getJSON') {
-        if (grideditor) {
-            return grideditor.getJSON();
-        } else {
-            return "{}";
+        
+        if(args[0] == 'getJSON') {
+            if (grideditor) {
+                return grideditor.getJSON();
+            } else {
+                return "{}";
+            }
         }
-    }
-    
-    if (arguments[0] == 'remove') {
-        if (grideditor) {
-            grideditor.remove();
+        
+        if (args[0] == 'remove') {
+            if (grideditor) {
+                grideditor.remove();
+            }
+            return;
         }
         return;
-    } 
-    /** Initialize plugin */
+    }
+    if(typeof arguments[0] == "string"){
+        return handleMainArguments(arguments);
+    }
+    /* bec. we still are going, there should be an Initiation */
+    var settings = $.extend({
+        'new_row_layouts'   : [ // Column layouts for add row buttons
+                                ["12"],
+                                ["6","6"],
+                                ["4","4","4"],
+                                ["3","3","3","3"],
+                                ["2","2","2","2","2","2"],
+                                ["2","8","2"],
+                                ["4","8"],
+                                ["8","4"]
+                            ],
+        'row_classes'       : [], // [{ label: 'Example class', cssClass: 'example-class'}],
+        'col_classes'       : [], // [{ label: 'Example class', cssClass: 'example-class'}],
+        'col_tools'         : [],
+        'row_tools'         : [],
+        'custom_filter'     : '',
+        'idleTime'          : 1000,
+        'plugins'           : {}, // custom settings for col/row modules
+        'lang'              : 'all',
+        'default_col_plugin': Object.keys(jQuery.fn.gridEditor.columnPlugins)[0],
+        'default_row_plugin': Object.keys(jQuery.fn.gridEditor.rowPlugins)[0],
+        'valid_col_sizes'   : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        'breakpointOrder'   : ["","sm","md","lg","xl"], // bt 4
+        'breakpoints'       : [{"col":"lg","type":"Desktop","width":"none"},{"col":"sm","type":"Tablet","width":"800px"},{"col":"","type":"Smartphone","width":"400px"}]
+    }, options);
+    // breakpoints sortet after size desc.
+    // avaliable bp: breakpoints ordered by breakpointOrder
 
-    function getColPlugin(type) {
-        if($.fn.gridEditor.columnPlugins[type]==undefined){throw new Error(`unknown Grideditor Column Plugin '${type}'. Include the plugin you require.`)}
-        return $.fn.gridEditor.columnPlugins[type];
-    }
-    function getColPlugins() {
-        return $.fn.gridEditor.columnPlugins;
-    }
-    function getRowPlugins() {
-        return $.fn.gridEditor.rowPlugins;
-    }
+    /** Initialize plugin 
+     * @class  */
+    const plugins = {
+        col:{
+            /** get specific ColumnPlugin */
+            get:function(type) {
+                if($.fn.gridEditor.columnPlugins[type]==undefined){throw new Error(`unknown Grideditor Column Plugin '${type}'. Include the plugin you require.`)}
+                return $.fn.gridEditor.columnPlugins[type];
+            },
+            /** get all ColumnPlugins */
+            getAll:function() { // getColPlugins -> plugins.col.getAll()
+                return $.fn.gridEditor.columnPlugins;
+            },
+            /** init a ColumnPlugin */
+            init: function(element, option={}){
+                if(option.isFromServer == undefined){option.isFromServer=false}
+                if(option.initByPaste == undefined){option.initByPaste=false}
+                // if ($(this).hasClass('ge-rte-active')) { return; }
+                let plugin = $(element).parent().attr('value-type');
+                console.log("plugins.col.initOne: %s",plugin);
+                var colPlugin = plugins.col.get(plugin);
+                if (colPlugin) {
+                    $(element).addClass('ge-rte-active', true);
+                    try{
+                        if(option.initByPaste && colPlugin.onPaste!=undefined){
+                            colPlugin.onPaste(settings, $(element), option.isFromServer)
+                        } else {
+                            colPlugin.init(settings, $(element), option.isFromServer);
+                        }
+                        // colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
+                        // colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
+                        $(element).attr("data-ge-content-type",plugin);
+                    }
+                    catch(e){
+                        console.error(`initiation for plugin '${plugin}' failed!`,e);
+                        indicateError(`initiation for plugin '${plugin}' failed! ${e&&e.message||e||''}`,`Error`,stack());
+                    }
+                }
+            }
+        },
+        row:{
+            /** get all RowPlugins */
+            getAll:function() { // getRowPlugins -> plugins.row.getAll()
+                return $.fn.gridEditor.rowPlugins;
+            }
+        },
+        remove: function (element,resMe,rejMe,col=false){
+            Promise.all(element.children(".row,.column").map(function(index, child){
+                return new Promise(function(res,rej){
+                    plugins.remove($(child),res,rej,!col);
+                })
+            })).then(function(){
+                if(col){
+                    let colPlugin = $(element).find('.ge-content').attr('data-ge-content-type');
+                    $.ajax({
+                        url: 'cfc/grid/grid.cfc',
+                        data: {
+                            method: 'onDelete',
+                            data: JSON.stringify(plugins.col.get(colPlugin).parse(settings,$(element).find('.ge-content'))),
+                            plugin: colPlugin
+                        },
+                        dataType: 'json',
+                        success: function(data){
+                            if(data == true) {
+                                element.remove();
+                                resMe();
+                            } else {
+                                rejMe();
+                            }
+                        },
+                        error: rejMe
+                    })
+                } else {
+                    element.remove();
+                    resMe();
+                }
+            }).catch(function(){
+                console.log("stoped");
+            });
+        }
+    };
+    
+    /* insert Event ? */
 
-    self.each(function(baseIndex, baseElem) {
+        
+    
+    // function initColPlugin(option={}) {
+    //     if(option.isFromServer == undefined){option.isFromServer=false}
+    //     if(option.initByPaste == undefined){option.initByPaste=false}
+    //     // if ($(this).hasClass('ge-rte-active')) { return; }
+    //     let plugin = $(this).parent().attr('value-type');
+    //     console.log("initColPlugin: %s",plugin);
+    //     var colPlugin = plugins.col.get(plugin);
+    //     if (colPlugin) {
+    //         $(this).addClass('ge-rte-active', true);
+    //         try{
+    //             if(option.initByPaste && colPlugin.onPaste!=undefined){
+    //                 colPlugin.onPaste(settings, $(this), option.isFromServer)
+    //             } else {
+    //                 colPlugin.init(settings, $(this), option.isFromServer);
+    //             }
+    //             // colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
+    //             // colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
+    //             $(this).attr("data-ge-content-type",plugin);
+    //         }
+    //         catch(e){
+    //             console.error(`initiation for plugin '${plugin}' failed!`,e);
+    //             indicateError(`initiation for plugin '${plugin}' failed! ${e&&e.message||e||''}`,`Error`,stack());
+    //         }
+    //     }
+    // }
+
+    function initOnto(baseIndex, baseElem) {
         baseElem = $(baseElem);
-        var settings = $.extend({
-            'new_row_layouts'   : [ // Column layouts for add row buttons
-                                    ["12"],
-                                    ["6","6"],
-                                    ["4","4","4"],
-                                    ["3","3","3","3"],
-                                    ["2","2","2","2","2","2"],
-                                    ["2","8","2"],
-                                    ["4","8"],
-                                    ["8","4"]
-                                ],
-            'row_classes'       : [], // [{ label: 'Example class', cssClass: 'example-class'}],
-            'col_classes'       : [], // [{ label: 'Example class', cssClass: 'example-class'}],
-            'col_tools'         : [],
-            'row_tools'         : [],
-            'custom_filter'     : '',
-            'idleTime'          : 1000,
-            'plugins'           : {}, // custom settings for col/row modules
-            'lang'              : 'all',
-            'default_col_plugin': Object.keys(jQuery.fn.gridEditor.columnPlugins)[0],
-            'default_row_plugin': Object.keys(jQuery.fn.gridEditor.rowPlugins)[0],
-            'valid_col_sizes'   : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-            'breakpointOrder'   : ["","sm","md","lg","xl"], // bt 4
-            'breakpoints'       : [{"col":"lg","type":"Desktop","width":"none"},{"col":"sm","type":"Tablet","width":"800px"},{"col":"","type":"Smartphone","width":"400px"}]
-        }, options);
-        // breakpoints sortet after size desc.
-        // avaliable bp: breakpoints ordered by breakpointOrder
-
         var canvas,
             mainControls,
             wrapper,
@@ -99,22 +205,39 @@ $.fn.gridEditor = function( options ) {
         ;
         // search for General Inconsistence
         console.assert(settings.breakpoints.map(function(a){return a.col}).filter(function(a){return settings.breakpointOrder.indexOf(a)==-1}).length==0,"breakpoints[].col invalid for ordering, for custom ordering use breakpointOrder[]");
-        // continue
-        function ad(a){return a+(a==""?"":"-")}
-        var colClasses = settings.breakpoints.map(function(a){return`col-${ad(a.col)}`});
-        var curColClassIndex = 0; // Index of the column class we are manipulating currently
-        var MAX_COL_SIZE = 12;
+
+        /** Contains functions and variables for class/breakpoints */
+        const classes = {
+            /** Add a '-' if argument is not empty
+             * @param {string} a suffix of columnClass 
+             * @returns {string} argument with or without a '-' suffix */
+            ad : function(a){return a+(a==""?"":"-")},
+
+            /** Usable Column classes 
+             * @type {string[]} */
+            colClasses: undefined,
+
+            /** Index of the column class we are manipulating currently. Index of *classes.colClasses* 
+             * @type {number} */
+            curColClassIndex : 0,
+
+            /** fullwith value of column
+             * @type {number} */
+            MAX_COL_SIZE : 12,
+        };
+        classes.colClasses = settings.breakpoints.map(function(a){return`col-${classes.ad(a.col)}`});
+
+        /** This is the variable to store Timeouts for save events */
         var lastChange = 0;
 
-        // Wrap content if it is non-bootstrap
-        if (baseElem.children().length && !baseElem.find('div.row').length) {
-            var children = baseElem.children();
-            var newRow = $('<div class="row"><div class="col-lg-12"/></div>').appendTo(baseElem);
-            newRow.find('.col-lg-12').append(children);
-        }
-
-        setup();
-        init();
+        // Wrap content of baseElem in <newRow>, if it is non-bootstrap
+        (function wrapChildrenForBootstrap(){
+            if (baseElem.children().length && !baseElem.find('div.row').length) {
+                var children = baseElem.children();
+                var newRow = $('<div class="row"><div class="col-lg-12"/></div>').appendTo(baseElem);
+                newRow.find('.col-lg-12').append(children);
+            }
+        })()
 
         function setup() {
             /* Setup canvas */
@@ -129,6 +252,7 @@ $.fn.gridEditor = function( options ) {
             // Add row
             addRowGroup = $('<div class="ge-addRowGroup btn-group" />').appendTo(wrapper);
 
+            //#region width / breakpoint
             // sort out items that are in the breakpoints
             let bpo = settings.breakpointOrder.map(function(a, b) {
                 return [a, b]
@@ -139,7 +263,7 @@ $.fn.gridEditor = function( options ) {
             }).sort(function(a, b) {
                 return a[1] > b[1]
             }).map(function(a) {
-                return ad(a[0])
+                return classes.ad(a[0])
             })
 
             let nextHigher;
@@ -176,7 +300,7 @@ $.fn.gridEditor = function( options ) {
                             /* replace */
                             let a = createColumn(1).attr('class','').addClass(i);
                             a.appendTo(row);
-                            getColPlugin(settings.default_col_plugin).init(settings,a.find(".ge-content"));
+                            plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"));
                         });
                         init();
                         self.trigger("webIQGridEditor:change");
@@ -187,9 +311,9 @@ $.fn.gridEditor = function( options ) {
 
                 btn.append('<i class="fa fa-plus"></i>');
 
-                var layoutName = layout.join(' - ');
+                // var layoutName = layout.join(' - ');
                 var icon = '<div class="row ge-row-icon">';
-                let max = "";
+                // let max = "";
                 layout.forEach(function(i) {
                     icon += `<div class="column ${i}" display="${i.split(' ').reverse()[0].match(/\d*/g,`$1`).join('')}"/>`;
                 });
@@ -212,24 +336,32 @@ $.fn.gridEditor = function( options ) {
                 })
                 .appendTo(wrapper)
             ;
-            var btnGroup = $('<div class="btn-group pull-right"/>')
-                .appendTo(wrapper)
-            ;
+            // var btnGroup = $('<div class="btn-group pull-right"/>')
+            //     .appendTo(wrapper)
+            // ;
 
             // Make controls fixed on scroll
             // $(window).on('scroll', onScroll);
             mainControls.css({"position":"sticky","top":"0","z-index":"1"})
-           
+            //#endregion
+
+            // call firstInit for ColumnPlugins
             console.groupCollapsed("init");
-            // call firstInit for Plugins
-            Promise.allSettled(Object.keys(getColPlugins()).map(function(a){
+            Promise.allSettled(Object.keys(plugins.col.getAll()).map(function(a){
                 return new Promise(function(resolve,reject){
-                    if(!getColPlugin(a).firstInit){return resolve({"value":"","plugin":a})};
-                    getColPlugin(a).firstInit(function(b){resolve({"value":b,"plugin":a})},function(b){reject({"reason":b,"plugin":a})},settings);
+                    if(!plugins.col.get(a).firstInit){return resolve({"value":"","plugin":a})};
+                    plugins.col.get(a).firstInit(function(b){resolve({"value":b,"plugin":a})},function(b){reject({"reason":b,"plugin":a})},settings);
                 });
             })).then(function(a){
                 a.forEach(function(b){
                     if(b.status=="fulfilled"){
+                        if(plugins.col.get(b.value.plugin).element==undefined){
+                            indicateError("expected plugin '"+b.value.plugin+"' to own a 'element' property.",'plugin error',stack(-1));
+                            return;
+                        }
+                        plugins.col.get(b.value.plugin).element
+                            .on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")})
+                            .on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
                         console.log(`first initiation of plugin '${b.value.plugin}' was successful. ${b.value.value||''}`)
                     } else if(b.status=="rejected"){
                         console.error(`firstInit() of plugin '${b.reason.plugin}' has failed. ${b.reason.reason||''}`);
@@ -238,7 +370,7 @@ $.fn.gridEditor = function( options ) {
                 })
                 if(!a.filter(function(c){return c.status=="rejected"}).length){
                     canvas.find('.ge-content').each(function(){
-                        initColPlugin.call(this,{isFromServer:true});
+                        plugins.col.init(this,{isFromServer:true});
                     });
                 }
                 console.groupEnd();
@@ -246,61 +378,35 @@ $.fn.gridEditor = function( options ) {
         }
         
         
-        function onScroll(e) {
-            var $window = $(window);
-            
-            if (
-                $window.scrollTop() > mainControls.offset().top &&
-                $window.scrollTop() < canvas.offset().top + canvas.height()
-            ) {
-                if (wrapper.hasClass('ge-top')) {
-                    wrapper
-                        .css({
-                            left: wrapper.offset().left,
-                            width: wrapper.outerWidth(),
-                        })
-                        .removeClass('ge-top')
-                        .addClass('ge-fixed')
-                    ;
-                }
-            } else {
-                if (wrapper.hasClass('ge-fixed')) {
-                    wrapper.css({ left: '', width: '' }).removeClass('ge-fixed').addClass('ge-top')
-                    ;
-                }
-            }
-        }
+        // function onScroll(e) {
+        //     var $window = $(window);
+        //     if (
+        //         $window.scrollTop() > mainControls.offset().top &&
+        //         $window.scrollTop() < canvas.offset().top + canvas.height()
+        //     ) {
+        //         if (wrapper.hasClass('ge-top')) {
+        //             wrapper
+        //                 .css({
+        //                     left: wrapper.offset().left,
+        //                     width: wrapper.outerWidth(),
+        //                 })
+        //                 .removeClass('ge-top')
+        //                 .addClass('ge-fixed')
+        //             ;
+        //         }
+        //     } else {
+        //         if (wrapper.hasClass('ge-fixed')) {
+        //             wrapper.css({ left: '', width: '' }).removeClass('ge-fixed').addClass('ge-top')
+        //             ;
+        //         }
+        //     }
+        // }
         
-        function initColPlugin(option={}) {
-            if(option.isFromServer == undefined){option.isFromServer=false}
-            if(option.initByPaste == undefined){option.initByPaste=false}
-            // if ($(this).hasClass('ge-rte-active')) { return; }
-            let plugin = $(this).parent().attr('value-type');
-            console.log("initColPlugin: %s",plugin);
-            var colPlugin = getColPlugin(plugin);
-            if (colPlugin) {
-                $(this).addClass('ge-rte-active', true);
-                try{
-                    if(option.initByPaste && colPlugin.onPaste!=undefined){
-                        colPlugin.onPaste(settings, $(this), option.isFromServer)
-                    } else {
-                        colPlugin.init(settings, $(this), option.isFromServer);
-                    }
-                    colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
-                    colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
-                    $(this).attr("data-ge-content-type",plugin);
-                }
-                catch(e){
-                    console.error(`initiation for plugin '${plugin}' failed!`,e);
-                    indicateError(`initiation for plugin '${plugin}' failed! ${e&&e.message||e||''}`,`Error`,stack());
-                }
-            }
-        }
 
-        function reset() {
-            deinit();
-            init();
-        }
+        // function reset() {
+        //     deinit();
+        //     init();
+        // }
 
         function init() {
             runFilter(true);
@@ -310,7 +416,7 @@ $.fn.gridEditor = function( options ) {
             createRowControls();
             createColControls();
             makeSortable();
-            switchLayout(curColClassIndex);
+            switchLayout(classes.curColClassIndex);
         }
 
         function deinit() { // is not called
@@ -330,8 +436,8 @@ $.fn.gridEditor = function( options ) {
             deinit();
             mainControls.remove();
             htmlTextArea.remove();
-            $(window).off('scroll', onScroll);
-            canvas.off('click', '.ge-content', initColPlugin);
+            // $(window).off('scroll', onScroll);
+            canvas.off('click', '.ge-content', plugins.col.init);
             canvas.removeData('grideditor');
         }
 
@@ -339,7 +445,7 @@ $.fn.gridEditor = function( options ) {
             return canvas.html();
         }
         //#region clipboard
-        ls = {
+        const ls = {
             key: location.host.split('.').reverse().join('.')+'.grideditor.clipboard',
             value: {},
             get: function(){this.value=JSON.parse(localStorage.getItem(this.key))},
@@ -367,7 +473,7 @@ $.fn.gridEditor = function( options ) {
                         createColControls(prototypeElement);
                         makeSortable(prototypeElement);
                         prototypeElement.find(".ge-content").each(function(){
-                            initColPlugin.call(this, {isFromServer:true,initByPaste:true});
+                            plugins.col.init(this, {isFromServer:true,initByPaste:true});
                         });
                         self.trigger("webIQGridEditor:change");
                     },
@@ -382,55 +488,8 @@ $.fn.gridEditor = function( options ) {
         Object.defineProperty(ls, "data", {get:function(){return JSON.parse(this.value.data)}});
         ls.get();
 
-        // const LS_KEY = location.host.split('.').reverse().join('.')+'.grideditor.clipboard';
-        // function copyToLS(type,data){
-        //     localStorage.setItem(LS_KEY,JSON.stringify({type:type,data:data}));
-        // }
-        // function whatIsInLS(){
-        //     return pasteFromLS().type;
-        // }
-        // function pasteFromLS(){
-        //     return JSON.parse(localStorage.getItem(LS_KEY)||null);
-        // }
-        // function formatToPaste(){}
-        // _G_cca.push(new ChromeClickAction({"whatIsInLS":function(){console.log(whatIsInLS())},"pasteFromLS":function(){console.log(pasteFromLS())}}))
         // #endregion clipboard
-
-        function deleteColOrRow(element,resMe,rejMe,col=false){
-            Promise.all(element.children(".row,.column").map(function(index, child){
-                return new Promise(function(res,rej){
-                    deleteColOrRow($(child),res,rej,!col);
-                })
-            })).then(function(){
-                if(col){
-                    let colPlugin = $(element).find('.ge-content').attr('data-ge-content-type');
-                    $.ajax({
-                        // § server path
-                        url: 'cfc/grid/col'+colPlugin+'.cfc',
-                        data: {
-                            method: 'onDelete',
-                            data: JSON.stringify(getColPlugin(colPlugin).parse(settings,$(element).find('.ge-content')))
-                        },
-                        dataType: 'json',
-                        success: function(data){
-                            if(data == true) {
-                                element.remove();
-                                resMe();
-                            } else {
-                                rejMe();
-                            }
-                        },
-                        error: rejMe
-                    })
-                } else {
-                    element.remove();
-                    resMe();
-                }
-            }).catch(function(){
-                console.log("stoped");
-            });
-        }
-
+        //#region createContolls
         function createRowControls(element=canvas) {
             element.find('.row').addBack('.row').each(function() {
                 var row = $(this);
@@ -447,7 +506,7 @@ $.fn.gridEditor = function( options ) {
                     let a = createColumn(12);
                     a.appendTo(row);
                     // row.append(a);
-                    getColPlugin(settings.default_col_plugin).init(settings,a.find(".ge-content"));
+                    plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"));
                     console.log("Has been appied")
                     init();
                     // self.trigger("webIQGridEditor:change");
@@ -488,7 +547,7 @@ $.fn.gridEditor = function( options ) {
                 })
                 createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
                     if (window.confirm('Delete row?')) {
-                        deleteColOrRow(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
+                        plugins.remove(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
                         
                         // row.slideUp(function() {
                         //     row.remove();
@@ -499,8 +558,8 @@ $.fn.gridEditor = function( options ) {
                 drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
                 // <!--- § create rows --->
                 // {"name":"type","type":"dropdown","options":["default",{"name":"accordion","settings":[{"name":"open","type":"switch","default":0},{"name":"title","type":"input"}]},{"name":"box","settings":[{"name":"color","type":"dropdown","options":["red","blue"]}]}]}
-                let plugins = getRowPlugins();
-                let rowTools = {"name":"type","type":"dropdown","options":Object.keys(plugins).map(function(a){return plugins[a].internal?{"name":a,"settings":plugins[a].internal}:a})}
+                let plugin = plugins.row.getAll();
+                let rowTools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return plugin[a].internal?{"name":a,"settings":plugin[a].internal}:a})}
                 var details = createDetails(row, settings.row_classes, [...settings.row_tools,rowTools]).appendTo(drawer);
                 
             });
@@ -518,7 +577,7 @@ $.fn.gridEditor = function( options ) {
 
                 createTool(drawer, 'Make column narrower\n(hold shift for min)', 'ge-decrease-col-width', 'fa fa-minus', function(e) {
                     var colSizes = settings.valid_col_sizes;
-                    var curColClass = colClasses[curColClassIndex];
+                    var curColClass = classes.colClasses[classes.curColClassIndex];
                     var curColSizeIndex = colSizes.indexOf(getColSize(col, curColClass));
                     var newSize = colSizes[clamp(curColSizeIndex - 1, 0, colSizes.length - 1)];
                     if (e.shiftKey) {
@@ -530,7 +589,7 @@ $.fn.gridEditor = function( options ) {
 
                 createTool(drawer, 'Make column wider\n(hold shift for max)', 'ge-increase-col-width', 'fa fa-plus', function(e) {
                     var colSizes = settings.valid_col_sizes;
-                    var curColClass = colClasses[curColClassIndex];
+                    var curColClass = classes.colClasses[classes.curColClassIndex];
                     var curColSizeIndex = colSizes.indexOf(getColSize(col, curColClass));
                     var newColSizeIndex = clamp(curColSizeIndex + 1, 0, colSizes.length - 1);
                     var newSize = colSizes[newColSizeIndex];
@@ -545,7 +604,7 @@ $.fn.gridEditor = function( options ) {
                         }
                     }
                     
-                    setColSize(col, curColClass, Math.min(newSize, MAX_COL_SIZE));
+                    setColSize(col, curColClass, Math.min(newSize, classes.MAX_COL_SIZE));
                     self.trigger("webIQGridEditor:change");
                 });
 
@@ -558,7 +617,7 @@ $.fn.gridEditor = function( options ) {
                     col.append(row);
                     let a = createColumn(12);
                     row.append(a);
-                    getColPlugin(settings.default_col_plugin).init(settings,a.find(".ge-content"))
+                    plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"))
                     
                     init();
                     // self.trigger("webIQGridEditor:change");
@@ -596,7 +655,7 @@ $.fn.gridEditor = function( options ) {
 
                 createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
                     if (window.confirm('Delete column?')) {
-                        deleteColOrRow(col,function(){self.trigger("webIQGridEditor:change")},function(){},true);
+                        plugins.remove(col,function(){self.trigger("webIQGridEditor:change")},function(){},true);
                         // col.animate({
                         //     opacity: 'hide',
                         //     width: 'hide',
@@ -608,36 +667,12 @@ $.fn.gridEditor = function( options ) {
 
                 drawer.append($("<div class=\"btn-group\"><a class=\"ge-add-row\" type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>").append(more));
 
-                let plugins = getColPlugins()
-                let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugins).map(function(a){return {"name":a,"settings":plugins[a].settings}||a})}
-                console.log("yes?");
-                try{FLK==1;debugger}catch(e){}
+                let plugin = plugins.col.getAll()
+                let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return {"name":a,"settings":plugin[a].settings}||a})}
                 var details = createDetails(col, settings.col_classes, [...settings.col_tools,col_tools]).appendTo(drawer);
             });
         }
-
-        function getColumnSpare(row,col) {
-            return MAX_COL_SIZE - getColumnSizes(row,col);
-        }
-
-        function getColumnSizes(row,col) {
-            var layout = colClasses[curColClassIndex];
-            var size = 0; // current line
-            let result = 0; // max length
-            let calc = false;
-            row.children('[class*="'+layout+'"]').each(function(i){
-                let me = getColSize($(this),layout);
-                let curr = col.is(this);
-                if(curr){calc=true;result-=me;}
-                if(calc&&size+me>12&&curr){size=0;}
-                if(calc&&size+me>12&&!curr){result+=size;}
-                if(size+me>12){size=0;if(calc){calc=false;return false}}
-                size += me;
-            });
-            if(calc&&size!=0){result+=size;}
-            return result;
-        }
-
+        
         function createTool(drawer, title, className, iconClass, eventHandlers) {
             var tool = $('<a title="' + title + '" class="' + className + '"><i class="' + iconClass + '"></i> '+(drawer.hasClass("dropdown-menu")?title:'')+'</a>')
                 .appendTo(drawer)
@@ -721,77 +756,16 @@ $.fn.gridEditor = function( options ) {
             detailsDiv.find("[parent='value'][name='type']").on('change',function(){
                 if(container.hasClass('column')){
                     // step 1: deinit() old plugin
-                    getColPlugin(container.find('.ge-content').attr('data-ge-content-type')).deinit(settings, container.find('.ge-content'));
+                    plugins.col.get(container.find('.ge-content').attr('data-ge-content-type')).deinit(settings, container.find('.ge-content'));
                     // step 2: DELETE CONTENT (plugin preperation)
                     container.find('.ge-content').html('');
                     // step 3: init new module
-                    initColPlugin.call(container.find('.ge-content'))
+                    plugins.col.init(container.find('.ge-content'));
                 }
             });
             return detailsDiv;
         }
-
-        function addAllColClasses(element=canvas) {
-            element.find('.column, div[class*="col-"]').addBack('.column, div[class*="col-"]').each(function() {
-                var col = $(this);
-
-                var size = 2;
-                var sizes = getColSizes(col);
-                if (sizes.length) {
-                    size = sizes[0].size;
-                }
-
-                var elemClass = col.attr('class');
-                colClasses.forEach(function(colClass) {
-                    if (elemClass.indexOf(colClass) == -1) {
-                        col.addClass(colClass + size);
-                    }
-                });
-
-                col.addClass('column');
-            });
-        }
-        /**
-         * Return the column size for colClass, or a size from a different
-         * class if it was not found.
-         * Returns null if no size whatsoever was found.
-         */
-        function getColSize(col, colClass) {
-            var sizes = getColSizes(col);
-            for (var i = 0; i < sizes.length; i++) {
-                if (sizes[i].colClass == colClass) {
-                    return sizes[i].size;
-                }
-            }
-            if (sizes.length) {
-                return sizes[0].size;
-            }
-            return null;
-        }
-
-        function getColSizes(col) {
-            var result = [];
-            colClasses.forEach(function(colClass) {
-                var re = new RegExp(colClass + '(\\d+)', 'i');
-                if (re.test(col.attr('class'))) {
-                    result.push({
-                        colClass: colClass,
-                        size: parseInt(re.exec(col.attr('class'))[1])
-                    });
-                }
-            });
-            return result;
-        }
-
-        function setColSize(col, colClass, size) {
-            var re = new RegExp('(' + colClass + '(\\d+))', 'i');
-            var reResult = re.exec(col.attr('class'));
-            if (reResult && parseInt(reResult[2]) !== size) {
-                col.switchClass(reResult[1], colClass + size, 50);
-            } else {
-                col.addClass(colClass + size);
-            }
-        }
+        //#endregion
 
         function makeSortable(element=canvas) {
             element.find('.row').addBack('.row').sortable({
@@ -827,9 +801,9 @@ $.fn.gridEditor = function( options ) {
                     s.cW = ui.size.width;
                     // s.MI = settings.valid_col_sizes.sort((a,b)=>a-b)[0];
                     // s.MX = settings.valid_col_sizes.sort((a,b)=>b-a)[0];
-                    s.MX = MAX_COL_SIZE;
-                    s.cc.all = colClasses;
-                    s.cc.key = colClasses[curColClassIndex];
+                    s.MX = classes.MAX_COL_SIZE;
+                    s.cc.all = classes.colClasses;
+                    s.cc.key = classes.colClasses[classes.curColClassIndex];
                     
                     try{s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
                     } catch(e){debugger}
@@ -864,6 +838,92 @@ $.fn.gridEditor = function( options ) {
         function removeSortable(c) {
             c.add(c.find('.column')).add(c.find('.row')).sortable('destroy');
         }
+        //#endregion
+
+        //#region column calculation
+        function getColumnSpare(row,col) {
+            return classes.MAX_COL_SIZE - getColumnSizes(row,col);
+        }
+
+        function getColumnSizes(row,col) {
+            var layout = classes.colClasses[classes.curColClassIndex];
+            var size = 0; // current line
+            let result = 0; // max length
+            let calc = false;
+            row.children('[class*="'+layout+'"]').each(function(i){
+                let me = getColSize($(this),layout);
+                let curr = col.is(this);
+                if(curr){calc=true;result-=me;}
+                if(calc&&size+me>12&&curr){size=0;}
+                if(calc&&size+me>12&&!curr){result+=size;}
+                if(size+me>12){size=0;if(calc){calc=false;return false}}
+                size += me;
+            });
+            if(calc&&size!=0){result+=size;}
+            return result;
+        }
+
+        function addAllColClasses(element=canvas) {
+            element.find('.column, div[class*="col-"]').addBack('.column, div[class*="col-"]').each(function() {
+                var col = $(this);
+
+                var size = 2;
+                var sizes = getColSizes(col);
+                if (sizes.length) {
+                    size = sizes[0].size;
+                }
+
+                var elemClass = col.attr('class');
+                classes.colClasses.forEach(function(colClass) {
+                    if (elemClass.indexOf(colClass) == -1) {
+                        col.addClass(colClass + size);
+                    }
+                });
+
+                col.addClass('column');
+            });
+        }
+        /**
+         * Return the column size for colClass, or a size from a different
+         * class if it was not found.
+         * Returns null if no size whatsoever was found.
+         */
+        function getColSize(col, colClass) {
+            var sizes = getColSizes(col);
+            for (var i = 0; i < sizes.length; i++) {
+                if (sizes[i].colClass == colClass) {
+                    return sizes[i].size;
+                }
+            }
+            if (sizes.length) {
+                return sizes[0].size;
+            }
+            return null;
+        }
+
+        function getColSizes(col) {
+            var result = [];
+            classes.colClasses.forEach(function(colClass) {
+                var re = new RegExp(colClass + '(\\d+)', 'i');
+                if (re.test(col.attr('class'))) {
+                    result.push({
+                        colClass: colClass,
+                        size: parseInt(re.exec(col.attr('class'))[1])
+                    });
+                }
+            });
+            return result;
+        }
+
+        function setColSize(col, colClass, size) {
+            var re = new RegExp('(' + colClass + '(\\d+))', 'i');
+            var reResult = re.exec(col.attr('class'));
+            if (reResult && parseInt(reResult[2]) !== size) {
+                col.switchClass(reResult[1], colClass + size, 50);
+            } else {
+                col.addClass(colClass + size);
+            }
+        }
 
         function createRow() {
             return $(`<div class="row" value-type="${settings.default_row_plugin}"/>`);
@@ -872,7 +932,7 @@ $.fn.gridEditor = function( options ) {
         function createColumn(size) {// size : number
             // console.log(stack(0));
             let a = $('<div/>')
-                .addClass(colClasses.map(function(c){return c+size;}).join(' '))
+                .addClass(classes.colClasses.map(function(c){return c+size;}).join(' '))
                 .attr("value-type",settings.default_col_plugin)
                 .append(createDefaultContentWrapper().html(""));
             return a;
@@ -880,6 +940,7 @@ $.fn.gridEditor = function( options ) {
                 // .append(createDefaultContentWrapper().html(getColPlugin(settings.content_types).initialContent||""))//richtig weil default module genommen wird
             ;
         }
+        //#endregion
 
         /**
          * Run custom content filter on init and deinit
@@ -916,13 +977,13 @@ $.fn.gridEditor = function( options ) {
             });
         }
 
-        function doWrap(contents) { // disabled
-            if (contents.length) {
-                var container = createDefaultContentWrapper().insertAfter(contents.last());
-                contents.appendTo(container);
-                contents = $();
-            }
-        }
+        // function doWrap(contents) { // disabled
+        //     if (contents.length) {
+        //         var container = createDefaultContentWrapper().insertAfter(contents.last());
+        //         contents.appendTo(container);
+        //         contents = $();
+        //     }
+        // }
 
         function createDefaultContentWrapper() {
             return $('<div/>')
@@ -932,7 +993,7 @@ $.fn.gridEditor = function( options ) {
         }
 
         function switchLayout(colClassIndex,colClassButton) {
-            curColClassIndex = colClassIndex;
+            classes.curColClassIndex = colClassIndex;
             canvas.css({margin:"0px auto",maxWidth:colClassButton?colClassButton.data('breakpoint'):settings.breakpoints[0].width});
             
             settings.breakpoints.forEach(function(cssClass, i) {
@@ -963,7 +1024,7 @@ $.fn.gridEditor = function( options ) {
                     "rows": rows
                 };
                 /*attributes*/Object.assign(l, Array.from(col.attributes).filter(function(a){return a.name.match(/^value-(?!type)/g)}).map(function(a){return {"name":a.name.replace(/^value-(.*)$/g,"$1"),"value":a.value}}).reduce(function(a,b){a[b.name]=b.value;return a},{}));
-                /*plugin*/if($(col).find('.ge-content')!=null&&getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'))!=undefined){let p=getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));let q=p[copy&&p.onCopy?"onCopy":"parse"](settings,$(col).find('.ge-content'));Object.assign(l.plugin,q===true?p.parse(settings,$(col).find('.ge-content')):q)}
+                /*plugin*/if($(col).find('.ge-content')!=null&&plugins.col.get($(col).find('.ge-content').attr('data-ge-content-type'))!=undefined){let p=plugins.col.get($(col).find('.ge-content').attr('data-ge-content-type'));let q=p[copy&&p.onCopy?"onCopy":"parse"](settings,$(col).find('.ge-content'));Object.assign(l.plugin,q===true?p.parse(settings,$(col).find('.ge-content')):q)}
                 if (l.rows.length == 0) {delete l.rows}else{l.data.position=Array.from(col.children).filter(function(a){return a.classList.contains("row")||a.classList.contains("ge-content")}).map(function(a,i){return[i,a.classList.contains("row")]}).filter(function(a){return!a[1]})[0][0]}
                 if (Object.keys(l.plugin).length == 0) {delete l.plugin}
                 if (Object.keys(l.data).length == 0) {delete l.data}
@@ -1010,21 +1071,25 @@ $.fn.gridEditor = function( options ) {
             indicateError: indicateError,
         });
 
-        /* ERROR HANDLING */
+        //#region ERROR HANDLING
         window.addEventListener('unhandledrejection',isMyFault,{capture:true});"rejection";
         window.addEventListener('error',isMyFault,{capture:true});"error";
         function isMyFault(a){
             type = JSON.stringify(a.reason||a.message);
             console.warn("Caugth ",a);
             a.preventDefault();
-            indicateError(type,a);
+            let protoStack=undefined;
+            if(a.reason&&a.reason.stack){
+                protoStack=a.reason.stack.split("\n");
+            }
+            indicateError(type,a,protoStack);
         }
         function indicateError(message,error,stack){
             // create blackhole to prevent everything.
             enableSave=false;
-            self.off();
             self.trigger("webIQGridEditor:block");
             self.trigger("error");
+            self.off();
             // display an prototype looking Errorlog
             if(!self.hasClass("alert-danger")){
                 self.attr("class","")
@@ -1034,8 +1099,8 @@ $.fn.gridEditor = function( options ) {
             }
             $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:(error&&error.error&&error.error.stack?error.error.stack.replace("<","&lt;").replace(">","&gt;").replace("\n","<br>"):'')}`).appendTo(self);
         }
-
-        /* EVENT HANDLING */
+        //#endregion
+        //#region EVENT HANDLING
         self.on('webIQGridEditor:block',function(){
             clearTimeout(lastChange);
         })
@@ -1046,7 +1111,12 @@ $.fn.gridEditor = function( options ) {
             }
             lastChange=setTimeout(function(a){if(enableSave==false){return;};self.trigger("webIQGridEditor:changed")}, settings.idleTime,enableSave);
         });
-    });
+        //#endregion
+        setup();
+        init();
+
+    };
+    self.each(initOnto)
 
     return self;
 

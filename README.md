@@ -178,7 +178,7 @@ The Plugin gets Appended as an _Plain Object{ }_ to `jQuery.fn.gridEditor.<row/c
 Required: _true_  
 Type: _Array( AttributeContainer )_  
 Lookup _**AttributeContainer**_ in [col_tools & row_tools](#col_tools--row_tools)  
-Do not use `position`  
+Do not use `position` in AttributeContainer.type  
 
 ## Column Plugins  
 ```javascript
@@ -186,14 +186,14 @@ Do not use `position`
     /* Add Global Configuration for other elements / Plugins */
     let self = $g.columnPlugins.myColumnPlugin = {
         /* Add Custom functions and variables here */
-        element: $('<eventControllerElement>'),
+        element: $('<eventControllerElement />'),
         initialContent: '{"myField":"Inital Content"}',
         firstInit: function(resolve,reject){/* ... */},
         init: function(settings, contentArea, isFromServer){/* ... */},
         deinit: function(settings, contentArea){/* ... */},
         parse: function(settings, contentArea){ return {/* ... */} },
         onCopy: function(settings, contentArea){ return {/* ... */} },
-        onPaste: function(settings, contentArea, data){/* ... */},
+        onPaste: function(settings, contentArea, isFromServer){/* ... */},
     }
 })(jQuery,jQuery.fn.gridEditor)
 ```
@@ -327,14 +327,16 @@ If _True_ is returned, the data copied is from _parse()_
 If _False_ is returned, this plugin is not able to be copied  
 
 #### onPaste  
-This function resolves the data from copy  
+This function resolves the data from copy. function should work like init(...)  
+If no `onPaste` is defined, it calls `init`  
 Required: _false_  
 Arguments:  
 0 settings: [settings object](#settings) from initiation  
 1 contentArea: _jQuery Object_ containing the Element where to put the new Container  
-2 data: _Plain Object { Parsed Plugin }_, object to be used to rebuild Plugin  
+2 isFromServer: Boolean, is true, if the Plugin was initiated with content inside `contentArea` provided by the server  
 ```javascript
-onPaste: function(settings, contentArea, data){
+onPaste: function(settings, contentArea, isFromServer){
+    let data = JSON.parse(contentArea.find('[name=plugin]').val());
     if(data.myField == "@"){
         data = self.initialContent;
     }

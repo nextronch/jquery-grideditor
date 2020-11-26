@@ -5,6 +5,7 @@
         t:{"all":{"field1":"Translation For All Languages (used if Language does not have a Translation)"},"de":{"field2":"Übersetzung für Deutsch"},"en":{"field2":"Translation for English"}}, // OPTIONAL: Add somme Translations
         tr:function(l,a){return $g.translate.call(this.t,l,a)}, // OPTIONAL: add custom Functions to shorten the later calls
         initialContent: '{"type":"","name":"","id":"-1"}', // define your inital content / object
+        element: $('<eventController />'),
         firstInit: function(resolve,reject){ // STATIC, OPTIONAL: this will always be called on the initiation of an Grideditor. Uses Promise to wait for Response (ajax purpose)
             // do stuff to setup the [plugin] object
             $.ajax({
@@ -51,7 +52,7 @@
                     </tr>
                 </table>`;
             /* REQUIRED, STATIC: [plugin.element] */
-            self.element=$(b).each(function(_,a){ /* loop through each Element in the Template */
+            $(b).each(function(_,a){ /* loop through each Element in the Template */
                 $(a).appendTo(contentArea); // Append current Element to Editor View
 
                 // optional: add listener to data containing elements (may for somme changes in the background)
@@ -63,9 +64,9 @@
             });
 
             // OPTIONAL: append events to specific Elements. ex: hide in Editor View unusable Elements
-            self.element.find("[name=type]").on('change',function(){
-                if($(contentArea).find('[name=id]').val())
-                $(contentArea).find('[name=id]').toggleClass('hidden');
+            contentArea.find("[name=type]").on('change',function(){
+                if(contentArea.find('[name=id]').val())
+                contentArea.find('[name=id]').toggleClass('hidden');
                 self.element.trigger('webIQGridEditor:change'); 
             });
             // OPTIONAL: 'isFromServer' argument is TRUE if the init is called DURING initiation with Data from the Server
@@ -73,7 +74,7 @@
 
             // OPTIONAL: add post deliverer
             if(defaults.id==-1 && !isFromServer){ // test for the data if it is created by a ADD click
-                self.element.find("[name=id]").html("loading...") // give visual feedback
+                contentArea.find("[name=id]").html("loading...") // give visual feedback
                 // Load data with Promise 
                 new Promise(function(resolve,reject){
                     $.ajax({
@@ -92,18 +93,17 @@
                     })
                 }).then(function(result){
                     // blend from 'loading...' to content 
-                    self.element.find("[name=id]").fadeOut(100,function(){
+                    contentArea.find("[name=id]").fadeOut(100,function(){
                         $(this).html(result);
                         $(this).fadeIn(100);
                     })
                 }).catch(function(reason){
                     // replace with a described error
-                    self.element.find("[name=id]").html(reason.toString());
+                    contentArea.find("[name=id]").html(reason.toString());
                 })
             }
         },
         deinit: function(settings, contentArea){ // STATIC,REQUIRED: this function gets called, if the Editor View is not needet at that Element
-            contentArea = $(contentArea);
             contentArea
                 .html('')
                 .off()
@@ -113,10 +113,25 @@
         parse: function(settings, contentArea){ // STATIC,REQUIRED: this function is called everytime the changes has occured and an save needs to be made
             // convert the plugin data into the same structure as the "initContent" and the Server Element "input[name=plugin]"
             return  {
-                "type":$(contentArea).find("[name=type]").val(),
-                "name":$(contentArea).find("[name=name]").val(),
-                "id":$(contentArea).find("[name=id]").html(),
+                "type":contentArea.find("[name=type]").val(),
+                "name":contentArea.find("[name=name]").val(),
+                "id":contentArea.find("[name=id]").html(),
             }
+        },
+        onCopy: function(settings, contentArea){ // STATIC, OPTIONAL: this function gets called, when the Copy button is clicked somewhere
+            // return true, if the parse function should be used instead.
+            // return plain Object {} to use that data instead
+            // return false, if copy is not possible on this plugin. 
+            return $.extend(
+                {},
+                self.parse(settings, contentArea),
+                {
+                    id: -1
+                }
+            );
+        },
+        onPaste: function(settings, contentArea, isFromServer){ // STATIC, OPTIONAL: this function gets called after a server request, caused by a click on the paste button
+            // this should work like init(), just with copied data. 
         }
     };
 })(jQuery,jQuery.fn.gridEditor);

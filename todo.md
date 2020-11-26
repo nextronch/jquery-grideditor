@@ -59,3 +59,9 @@ f.find('.column').resizable({
     }
 })
 ```
+check for Events: 
+`$.fn.gridEditor.columnPlugins.text.element.get(0)[$.expando+1].events`  
+
+-- cfc path definable,
+-- hooks für verschiedenes,
+strukturieren
