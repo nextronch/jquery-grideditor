@@ -10,12 +10,15 @@
 (function( $ , debug = false){
 /* DEV Functions */
 /** trace current Line with a message @argument {string} msg prints into console the message and the line inwhich called */
-function trace(msg){try{throw new Error()}catch(e){console.log(`Tracking Occured${msg?` for "${msg}"`:''}: `,e.stack.split('\n')[2].replace(/^\W+at\W(?:[^(]*\((.*)\)|(.*))$/gm,'$1$2')/* .replace(/([^(]*|\tat )\((.*)\)?/g,'$1') */);}}
+// function trace(msg){try{throw new Error()}catch(e){console.log(`Tracking Occured${msg?` for "${msg}"`:''}: `,e.stack.split('\n')[2].replace(/^\W+at\W(?:[^(]*\((.*)\)|(.*))$/gm,'$1$2')/* .replace(/([^(]*|\tat )\((.*)\)?/g,'$1') */);}}
 
 /** @namespace grideditor */
 $.fn.gridEditor = function( options ) {
     let stack=$.fn.gridEditor.stack;
     let softError=$.fn.gridEditor.softError;
+    function clamp(input, min, max) {
+        return Math.min(max, Math.max(min, input));
+    }
     /** grideditor 
      * @type {Object}
      */
@@ -93,14 +96,13 @@ $.fn.gridEditor = function( options ) {
                 return $.fn.gridEditor.columnPlugins[type];
             },
             /** get all ColumnPlugins */
-            getAll:function() { // getColPlugins -> plugins.col.getAll()
+            getAll:function() {
                 return $.fn.gridEditor.columnPlugins;
             },
             /** init a ColumnPlugin */
             init: function(element, option={}){
                 if(option.isFromServer == undefined){option.isFromServer=false}
                 if(option.initByPaste == undefined){option.initByPaste=false}
-                // if ($(this).hasClass('ge-rte-active')) { return; }
                 let plugin = $(element).parent().attr('value-type');
                 console.log("plugins.col.initOne: %s",plugin);
                 var colPlugin = plugins.col.get(plugin);
@@ -112,8 +114,6 @@ $.fn.gridEditor = function( options ) {
                         } else {
                             colPlugin.init(settings, $(element), option.isFromServer);
                         }
-                        // colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
-                        // colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
                         $(element).attr("data-ge-content-type",plugin);
                     }
                     catch(e){
@@ -125,7 +125,7 @@ $.fn.gridEditor = function( options ) {
         },
         row:{
             /** get all RowPlugins */
-            getAll:function() { // getRowPlugins -> plugins.row.getAll()
+            getAll:function() {
                 return $.fn.gridEditor.rowPlugins;
             }
         },
@@ -164,44 +164,15 @@ $.fn.gridEditor = function( options ) {
             });
         }
     };
-    
-    /* insert Event ? */
 
-        
-    
-    // function initColPlugin(option={}) {
-    //     if(option.isFromServer == undefined){option.isFromServer=false}
-    //     if(option.initByPaste == undefined){option.initByPaste=false}
-    //     // if ($(this).hasClass('ge-rte-active')) { return; }
-    //     let plugin = $(this).parent().attr('value-type');
-    //     console.log("initColPlugin: %s",plugin);
-    //     var colPlugin = plugins.col.get(plugin);
-    //     if (colPlugin) {
-    //         $(this).addClass('ge-rte-active', true);
-    //         try{
-    //             if(option.initByPaste && colPlugin.onPaste!=undefined){
-    //                 colPlugin.onPaste(settings, $(this), option.isFromServer)
-    //             } else {
-    //                 colPlugin.init(settings, $(this), option.isFromServer);
-    //             }
-    //             // colPlugin.element.on('webIQGridEditor:change',function(){self.trigger("webIQGridEditor:change")});
-    //             // colPlugin.element.on('webIQGridEditor:block',function(){self.trigger("webIQGridEditor:block")});
-    //             $(this).attr("data-ge-content-type",plugin);
-    //         }
-    //         catch(e){
-    //             console.error(`initiation for plugin '${plugin}' failed!`,e);
-    //             indicateError(`initiation for plugin '${plugin}' failed! ${e&&e.message||e||''}`,`Error`,stack());
-    //         }
-    //     }
-    // }
-
-    function initOnto(baseIndex, baseElem) {
+    function initOnTo(baseIndex, baseElem) {
         baseElem = $(baseElem);
         var canvas,
             mainControls,
             wrapper,
             addRowGroup,
-            htmlTextArea
+            htmlTextArea,
+            lastChange = 0
         ;
         // search for General Inconsistence
         console.assert(settings.breakpoints.map(function(a){return a.col}).filter(function(a){return settings.breakpointOrder.indexOf(a)==-1}).length==0,"breakpoints[].col invalid for ordering, for custom ordering use breakpointOrder[]");
@@ -225,10 +196,422 @@ $.fn.gridEditor = function( options ) {
              * @type {number} */
             MAX_COL_SIZE : 12,
         };
-        classes.colClasses = settings.breakpoints.map(function(a){return`col-${classes.ad(a.col)}`});
+        Object.defineProperty(classes,"colClasses",{value:settings.breakpoints.map(function(a){return`col-${classes.ad(a.col)}`})})
+        //#region clipboard
+        const ls = {
+            key: location.host.split('.').reverse().join('.')+'.grideditor.clipboard',
+            value: {},
+            get: function(){this.value=JSON.parse(localStorage.getItem(this.key))},
+            set: function(x){if(x!=undefined){this.value=x};localStorage.setItem(this.key,JSON.stringify(this.value))},
+            pasteTo: function(element){
+                $.ajax({
+                    url:"cfc/grid/grid.cfc",
+                    data:{
+                        method:"renderPaste",
+                        type: ls.type,
+                        data: ls.value.data
+                    },
+                    success: function(data){
+                        let prototypeElement = $(data);
+                        prototypeElement.appendTo(element);
+                        if(ls.type == "col"){
+                            prototypeElement.addClass("column")
+                        } else if (ls.type == "row"){
+                            prototypeElement.addClass("row")
+                        }
+                        colCalc.addAllColClasses(prototypeElement);
+                        controls.applyToRows(prototypeElement);
+                        controls.applyToCols(prototypeElement);
+                        controls.makeSortable(prototypeElement);
+                        prototypeElement.find(".ge-content").each(function(){
+                            plugins.col.init(this, {isFromServer:true,initByPaste:true});
+                        });
+                        self.trigger("webIQGridEditor:change");
+                    },
+                    error: function(reason){
+                        console.error(reason);
+                        softError(reason);
+                    }
+                })
+            }
+        };
+        Object.defineProperty(ls, "type", {get:function(){return this.value.type}});
+        Object.defineProperty(ls, "data", {get:function(){return JSON.parse(this.value.data)}});
+        ls.get();
 
-        /** This is the variable to store Timeouts for save events */
-        var lastChange = 0;
+        // #endregion clipboard
+        //#region createContolls
+        const controls = {
+            applyToRows:function(element=canvas) {
+                element.find('.row').addBack('.row').each(function() {
+                    var row = $(this);
+                    if (row.find('> .ge-tools-drawer').length) { return; }
+
+                    var drawer = $('<div class="ge-tools-drawer" />').prependTo(row);
+                    let more = $('<div class=\"dropdown-menu\" />');
+
+                    controls.createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
+                    controls.createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
+                        details.toggle();
+                    });
+                    controls.createTool(more, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
+                        let a = colCalc.createColumn(12);
+                        a.appendTo(row);
+                        plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"));
+                        console.log("Has been appied")
+                        init();
+                    });
+                    controls.createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
+                        let __c = JSON.stringify(JSON.parse(getJSON(row,true)).rows[0]);
+                        ls.set({type:'row',data:__c});
+                    });
+                    controls.createTool(more, 'Paste Col', '', 'fa fa-paste', function(){
+                        if(ls.type=="col"){
+                            ls.pasteTo(row);
+                        }
+                    })
+                    controls.createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
+                        if (window.confirm('Delete row?')) {
+                            plugins.remove(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
+                        }
+                    });
+                    drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
+                    let plugin = plugins.row.getAll();
+                    let rowTools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return plugin[a].internal?{"name":a,"settings":plugin[a].internal}:a})}
+                    var details = controls.createDetails(row, settings.row_classes, [...settings.row_tools,rowTools]).appendTo(drawer);
+                    
+                });
+            },
+            applyToCols:function (element=canvas) {
+                element.find('.column').addBack('.column').each(function() {
+                    var col = $(this);
+                    if (col.find('> .ge-tools-drawer').length) { return; }
+
+                    var drawer = $('<div class="ge-tools-drawer" />').prependTo(col);
+                    let more = $("<div class=\"dropdown-menu\"></div>");
+
+                    controls.createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
+
+                    controls.createTool(drawer, 'Make column narrower\n(hold shift for min)', 'ge-decrease-col-width', 'fa fa-minus', function(e) {
+                        var colSizes = settings.valid_col_sizes;
+                        var curColClass = classes.colClasses[classes.curColClassIndex];
+                        var curColSizeIndex = colSizes.indexOf(colCalc.getColSize(col, curColClass));
+                        var newSize = colSizes[clamp(curColSizeIndex - 1, 0, colSizes.length - 1)];
+                        if (e.shiftKey) {
+                            newSize = colSizes[0];
+                        }
+                        colCalc.setColSize(col, curColClass, Math.max(newSize, 1));
+                        self.trigger("webIQGridEditor:change");
+                    });
+
+                    controls.createTool(drawer, 'Make column wider\n(hold shift for max)', 'ge-increase-col-width', 'fa fa-plus', function(e) {
+                        var colSizes = settings.valid_col_sizes;
+                        var curColClass = classes.colClasses[classes.curColClassIndex];
+                        var curColSizeIndex = colSizes.indexOf(colCalc.getColSize(col, curColClass));
+                        var newColSizeIndex = clamp(curColSizeIndex + 1, 0, colSizes.length - 1);
+                        var newSize = colSizes[newColSizeIndex];
+                        if (e.shiftKey) {
+                            newSize = colCalc.getColumnSpare(col.parent(),col);
+                            let a = colSizes.indexOf(newSize);
+                            if(a==-1){
+                                let b = 0;
+                                colSizes.forEach(function(c){if(c<newSize){b=c}}); // if size is not valid, go to next down
+                                if(b==0){colSizes.reverse().forEach(function(c){if(c>newSize){b=c}})}; // or wider
+                                newSize = b;
+                            }
+                        }
+                        
+                        colCalc.setColSize(col, curColClass, Math.min(newSize, classes.MAX_COL_SIZE));
+                        self.trigger("webIQGridEditor:change");
+                    });
+
+                    controls.createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
+                        details.toggle();
+                    });
+
+                    controls.createTool(more, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
+                        var row = colCalc.createRow();
+                        col.append(row);
+                        let a = colCalc.createColumn(12);
+                        row.append(a);
+                        plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"))
+                        
+                        init();
+                    });
+
+                    controls.createTool(more, 'Copy col', '','fas fa-copy',function(){
+                        let __c = getJSON(col,true);
+                        ls.set({type:'col',data:__c});
+                    })
+
+                    controls.createTool(more, 'Paste row', '', 'fas fa-paste', function(){
+                        if(ls.type=='row') {
+                            console.log("paste row: ",ls.data);
+                            ls.pasteTo(col);
+                        }
+                    })
+
+                    controls.createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
+                        if (window.confirm('Delete column?')) {
+                            plugins.remove(col,function(){self.trigger("webIQGridEditor:change")},function(){},true);
+                        }
+                    });
+                    drawer.append($("<div class=\"btn-group\"><a class=\"ge-add-row\" type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>").append(more));
+                    let plugin = plugins.col.getAll()
+                    let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return {"name":a,"settings":plugin[a].settings}||a})}
+                    var details = controls.createDetails(col, settings.col_classes, [...settings.col_tools,col_tools]).appendTo(drawer);
+                });
+            },
+            createTool: function (drawer, title, className, iconClass, eventHandlers) {
+                var tool = $('<a title="' + title + '" class="' + className + '"><i class="' + iconClass + '"></i> '+(drawer.hasClass("dropdown-menu")?title:'')+'</a>')
+                    .appendTo(drawer)
+                ;
+                if (typeof eventHandlers == 'function') {
+                    tool.on('click', eventHandlers);
+                }
+                if (typeof eventHandlers == 'object') {
+                    $.each(eventHandlers, function(name, func) {
+                        tool.on(name, func);
+                    });
+                }
+                return tool;
+            },
+            createDetails: function(container, cssClasses, customSettings = []) {
+                var detailsDiv = $('<div class="ge-details" />');
+                var classGroup = $('<div class="btn-group" />').appendTo(detailsDiv);
+                cssClasses.forEach(function(rowClass) {
+                    var btn = $('<a class="btn btn-sm btn-default" />')
+                        .html(rowClass.label)
+                        .attr('title', rowClass.title ? rowClass.title : 'Toggle "' + rowClass.label + '" styling')
+                        .toggleClass('active btn-primary', container.hasClass(rowClass.cssClass))
+                        .on('click', function() {
+                            btn.toggleClass('active btn-primary');
+                            container.toggleClass(rowClass.cssClass, btn.hasClass('active'));
+                        })
+                        .appendTo(classGroup)
+                    ;
+                });
+                function g(p,n){
+                    return `${p}-${n}`;
+                }
+                function buildFrom(x,parent='value'){
+                    let y = undefined;
+                    switch(x.type) {
+                        case "dropdown":
+                            y = $(`<select${parent != '' ? ` parent='${parent}'` : ''} name="${x.name}">${x.options.map(function (r) { return `<option${container.attr(g(parent,x.name)) == (r.name||r) ? " selected" : ""} value='${r.name||r}'>${r.name||r}</option>`}).join('')}</select>`).on('change',function(isInit=false){
+                                detailsDiv.find(`[parent=${parent + "-" + x.name}]`).replaceWith(); // Clean Subelements
+                                // unset all previous changes
+                                if(!isInit){
+                                    Array.from(container.get(0).attributes).filter(function (f) { return f.name.startsWith(g(parent, x.name) + `-`) }).forEach(function (d) {
+                                        container.removeAttr(d.name);
+                                    });
+                                }
+                                let o = $(this);
+                                container.attr(g(parent,x.name), o.val()); // Set Background value
+                                (x.options.filter(function(b){return (b.name||b)==o.val()})[0].settings||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
+                            });
+                            break;
+                        case "switch":
+                            if (container.attr(g(parent, x.name)) == undefined) { container.attr(g(parent, x.name), x.default == undefined ? false : x.default)}; // use default-value
+                            y = $(`<a${parent != '' ? ` parent='${ parent }'` : ''} class="btn btn-sm btn-default" />`)
+                                .html(x.name)
+                                .toggleClass('active btn-primary', container.attr(g(parent, x.name)) == "true")
+                                .on('click', function () {
+                                    $(this).toggleClass('active btn-primary');
+                                    container.attr(g(parent, x.name), $(this).hasClass('active'));
+                                    y.trigger("change");
+                                });
+                            break;
+                        case "input":
+                            y = $(`<input${parent != '' ? ` parent='${parent}'` : ''} placeholder="${x.placeholder||x.name}" type="${x.inputtype||'text'}" value="${container.attr(g(parent, x.name))||x.default||''}"/>`)
+                                .change(function(){
+                                    container.attr(g(parent, x.name),$(this).val());
+                                });
+                            break;
+                        default:
+                            throw new Error(`Detail Settings ElementType '${x.type}' unknown!`);
+                            break;
+                    }
+                    y.appendTo(detailsDiv);
+                    y.trigger('change', [true]);
+                    y.on('change',function(){self.trigger("webIQGridEditor:change")});
+                    return y;
+                }
+                customSettings.forEach(function(elementSettings){
+                    buildFrom(elementSettings);
+                });
+                detailsDiv.find("[parent='value'][name='type']").on('change',function(){
+                    if(container.hasClass('column')){
+                        // step 1: deinit() old plugin
+                        plugins.col.get(container.find('.ge-content').attr('data-ge-content-type')).deinit(settings, container.find('.ge-content'));
+                        // step 2: DELETE CONTENT (plugin preperation)
+                        container.find('.ge-content').html('');
+                        // step 3: init new module
+                        plugins.col.init(container.find('.ge-content'));
+                    }
+                });
+                return detailsDiv;
+            },
+            makeSortable: function (element=canvas) {
+                element.find('.row').addBack('.row').sortable({
+                    items: '> .column',
+                    connectWith: '.ge-canvas .row',
+                    handle: '> .ge-tools-drawer .ge-move',
+                    start: sortStart,
+                    stop: sortStop,
+                    tolerance: 'pointer',
+                    helper: 'clone',
+                });
+                element.add(element.find('.column').addBack('.column')).sortable({
+                    items: '> .row, > .ge-content',
+                    connectsWith: '.ge-canvas, .ge-canvas .column',
+                    handle: '> .ge-tools-drawer .ge-move',
+                    start: sortStart,
+                    stop: sortStop,
+                    helper: 'clone',
+                });
+                function sortStart(e, ui) {
+                    self.trigger("webIQGridEditor:block");
+                    ui.placeholder.css({ height: ui.item.outerHeight()});
+                }
+                function sortStop(e, ui) {
+                    self.trigger("webIQGridEditor:change");
+                }
+    
+                element.find('.column').addBack('.column').resizable({
+                    handles: "e",
+                    resize: function(ev,ui){
+                        const s = {cc:{}};
+                        s.mW = ui.element.parent().get(0).getBoundingClientRect().width;
+                        s.cW = ui.size.width;
+                        s.MX = classes.MAX_COL_SIZE;
+                        s.cc.all = classes.colClasses;
+                        s.cc.key = classes.colClasses[classes.curColClassIndex];
+                        
+                        try{s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
+                        } catch(e){debugger}
+                        const r = {};
+                        r.apr = s.cW / (s.mW / s.MX);
+                        r.est = Math.round(r.apr);
+                        r.closestTo = function(value,list){
+                            let index = list.indexOf(value);
+                            if (index==-1){
+                                let low = (list.filter(function(v){return v>value})[0]);
+                                let upper = (list.filter(function(v){return v<value}).pop())||s.MX;
+                                if(!(low && upper)){return low||upper;}
+                                return upper-value < value-low?upper:low;
+                            } else {
+                                return list[index];
+                            }
+                        }
+                        let x = r.closestTo(r.est,settings.valid_col_sizes);
+                        if(x!=s.cc.index){
+                            ui.element.removeClass(s.cc.key+s.cc.index);
+                            ui.element.addClass(s.cc.key+x);
+                        }
+                    },
+                    stop: function(ev,ui){
+                        ui.element.removeAttr('style');
+                        self.trigger("webIQGridEditor:changed");
+                    }
+                })
+            }
+        };
+        Object.defineProperty(controls, "removeSortable",{value:function (c) {
+            c.add(c.find('.column')).add(c.find('.row')).sortable('destroy');
+        }});
+        //#endregion
+
+        //#region column calculation
+        const colCalc = {
+            getColumnSpare:function (row,col) {
+                return classes.MAX_COL_SIZE - colCalc.getColumnSizes(row,col);
+            },
+            getColumnSizes:function(row,col) {
+                var layout = classes.colClasses[classes.curColClassIndex];
+                var size = 0; // current line
+                let result = 0; // max length
+                let calc = false;
+                row.children('[class*="'+layout+'"]').each(function(i){
+                    let me = colCalc.getColSize($(this),layout);
+                    let curr = col.is(this);
+                    if(curr){calc=true;result-=me;}
+                    if(calc&&size+me>12&&curr){size=0;}
+                    if(calc&&size+me>12&&!curr){result+=size;}
+                    if(size+me>12){size=0;if(calc){calc=false;return false}}
+                    size += me;
+                });
+                if(calc&&size!=0){result+=size;}
+                return result;
+            },
+            addAllColClasses: function (element=canvas) {
+                element.find('.column, div[class*="col-"]').addBack('.column, div[class*="col-"]').each(function() {
+                    var col = $(this);
+                    var size = 2;
+                    var sizes = colCalc.getColSizes(col);
+                    if (sizes.length) {
+                        size = sizes[0].size;
+                    }
+                    var elemClass = col.attr('class');
+                    classes.colClasses.forEach(function(colClass) {
+                        if (elemClass.indexOf(colClass) == -1) {
+                            col.addClass(colClass + size);
+                        }
+                    });
+                    col.addClass('column');
+                });
+            },
+            /**
+             * Return the column size for colClass, or a size from a different
+             * class if it was not found.
+             * Returns null if no size whatsoever was found.
+             */
+            getColSize: function (col, colClass) {
+                var sizes = colCalc.getColSizes(col);
+                for (var i = 0; i < sizes.length; i++) {
+                    if (sizes[i].colClass == colClass) {
+                        return sizes[i].size;
+                    }
+                }
+                if (sizes.length) {
+                    return sizes[0].size;
+                }
+                return null;
+            },
+            getColSizes: function (col) {
+                var result = [];
+                classes.colClasses.forEach(function(colClass) {
+                    var re = new RegExp(colClass + '(\\d+)', 'i');
+                    if (re.test(col.attr('class'))) {
+                        result.push({
+                            colClass: colClass,
+                            size: parseInt(re.exec(col.attr('class'))[1])
+                        });
+                    }
+                });
+                return result;
+            },
+            setColSize: function (col, colClass, size) {
+                var re = new RegExp('(' + colClass + '(\\d+))', 'i');
+                var reResult = re.exec(col.attr('class'));
+                if (reResult && parseInt(reResult[2]) !== size) {
+                    col.switchClass(reResult[1], colClass + size, 50);
+                } else {
+                    col.addClass(colClass + size);
+                }
+            }
+        };
+        Object.defineProperty(colCalc, "createRow",{value:function() {
+            return $(`<div class="row" value-type="${settings.default_row_plugin}"/>`);
+        }});
+        Object.defineProperty(colCalc, "createColumn",{value:function(size) {// size : number
+            let a = $('<div/>')
+                .addClass(classes.colClasses.map(function(c){return c+size;}).join(' '))
+                .attr("value-type",settings.default_col_plugin)
+                .append(createDefaultContentWrapper().html(""));
+            return a;
+        }});
+        //#endregion
 
         // Wrap content of baseElem in <newRow>, if it is non-bootstrap
         (function wrapChildrenForBootstrap(){
@@ -242,13 +625,10 @@ $.fn.gridEditor = function( options ) {
         function setup() {
             /* Setup canvas */
             canvas = baseElem.addClass('ge-canvas');
-            
             htmlTextArea = $('<textarea class="ge-html-output"/>').insertBefore(canvas);
-
             /* Create main controls*/
             mainControls = $('<div class="ge-mainControls" />').insertBefore(htmlTextArea);
             wrapper = $('<div class="ge-wrapper ge-top" />').appendTo(mainControls);
-
             // Add row
             addRowGroup = $('<div class="ge-addRowGroup btn-group" />').appendTo(wrapper);
 
@@ -289,16 +669,14 @@ $.fn.gridEditor = function( options ) {
                     return result
                 })
             });
-            // console.log(highestOfGroup)
             $.each(highestOfGroup, function(j, layout) {
-                // debugger;
                 var btn = $('<a class="btn btn-sm btn-primary" />')
                     .attr('title', 'Add row')
                     .on('click', function() {
-                        var row = createRow().appendTo(canvas);
+                        var row = colCalc.createRow().appendTo(canvas);
                         layout.forEach(function(i) {
                             /* replace */
-                            let a = createColumn(1).attr('class','').addClass(i);
+                            let a = colCalc.createColumn(1).attr('class','').addClass(i);
                             a.appendTo(row);
                             plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"));
                         });
@@ -311,13 +689,10 @@ $.fn.gridEditor = function( options ) {
 
                 btn.append('<i class="fa fa-plus"></i>');
 
-                // var layoutName = layout.join(' - ');
                 var icon = '<div class="row ge-row-icon">';
-                // let max = "";
                 layout.forEach(function(i) {
                     icon += `<div class="column ${i}" display="${i.split(' ').reverse()[0].match(/\d*/g,`$1`).join('')}"/>`;
                 });
-                // debugger;
                 icon += '</div>';
                 btn.append(icon);
             });
@@ -336,12 +711,6 @@ $.fn.gridEditor = function( options ) {
                 })
                 .appendTo(wrapper)
             ;
-            // var btnGroup = $('<div class="btn-group pull-right"/>')
-            //     .appendTo(wrapper)
-            // ;
-
-            // Make controls fixed on scroll
-            // $(window).on('scroll', onScroll);
             mainControls.css({"position":"sticky","top":"0","z-index":"1"})
             //#endregion
 
@@ -377,58 +746,20 @@ $.fn.gridEditor = function( options ) {
             })
         }
         
-        
-        // function onScroll(e) {
-        //     var $window = $(window);
-        //     if (
-        //         $window.scrollTop() > mainControls.offset().top &&
-        //         $window.scrollTop() < canvas.offset().top + canvas.height()
-        //     ) {
-        //         if (wrapper.hasClass('ge-top')) {
-        //             wrapper
-        //                 .css({
-        //                     left: wrapper.offset().left,
-        //                     width: wrapper.outerWidth(),
-        //                 })
-        //                 .removeClass('ge-top')
-        //                 .addClass('ge-fixed')
-        //             ;
-        //         }
-        //     } else {
-        //         if (wrapper.hasClass('ge-fixed')) {
-        //             wrapper.css({ left: '', width: '' }).removeClass('ge-fixed').addClass('ge-top')
-        //             ;
-        //         }
-        //     }
-        // }
-        
-
-        // function reset() {
-        //     deinit();
-        //     init();
-        // }
-
         function init() {
             runFilter(true);
             canvas.addClass('ge-editing');
-            addAllColClasses();
-            wrapContent();
-            createRowControls();
-            createColControls();
-            makeSortable();
+            colCalc.addAllColClasses();
+            controls.applyToRows();
+            controls.applyToCols();
+            controls.makeSortable();
             switchLayout(classes.curColClassIndex);
         }
 
         function deinit() { // is not called
             canvas.removeClass('ge-editing');
-            // let clonedObject = canvas.clone();
-            // var contents = canvas.find('.ge-content').removeClass('ge-rte-active').each(function(_,o) {
-            //     var content = $(o);
-            //     getRTE(content.parent().attr('value-type')).deinit(settings, content);
-            // });
-            // runFilter(false);
             canvas.find('.ge-content').removeClass('ge-rte-active');
-            removeSortable(canvas);
+            controls.removeSortable(canvas);
             canvas.find('.ge-tools-drawer').remove();
         }
         
@@ -436,7 +767,6 @@ $.fn.gridEditor = function( options ) {
             deinit();
             mainControls.remove();
             htmlTextArea.remove();
-            // $(window).off('scroll', onScroll);
             canvas.off('click', '.ge-content', plugins.col.init);
             canvas.removeData('grideditor');
         }
@@ -444,503 +774,6 @@ $.fn.gridEditor = function( options ) {
         function getHTML(){
             return canvas.html();
         }
-        //#region clipboard
-        const ls = {
-            key: location.host.split('.').reverse().join('.')+'.grideditor.clipboard',
-            value: {},
-            get: function(){this.value=JSON.parse(localStorage.getItem(this.key))},
-            set: function(x){if(x!=undefined){this.value=x};localStorage.setItem(this.key,JSON.stringify(this.value))},
-            pasteTo: function(element){
-                $.ajax({
-                    url:"cfc/grid/grid.cfc",
-                    data:{
-                        method:"renderPaste",
-                        type: ls.type,
-                        data: ls.value.data
-                    },
-                    success: function(data){
-                        // debugger;
-                        let prototypeElement = $(data);
-                        prototypeElement.appendTo(element);
-                        // debugger;
-                        if(ls.type == "col"){
-                            prototypeElement.addClass("column")
-                        } else if (ls.type == "row"){
-                            prototypeElement.addClass("row")
-                        }
-                        addAllColClasses(prototypeElement);
-                        createRowControls(prototypeElement);
-                        createColControls(prototypeElement);
-                        makeSortable(prototypeElement);
-                        prototypeElement.find(".ge-content").each(function(){
-                            plugins.col.init(this, {isFromServer:true,initByPaste:true});
-                        });
-                        self.trigger("webIQGridEditor:change");
-                    },
-                    error: function(reason){
-                        console.error(reason);
-                        softError(reason);
-                    }
-                })
-            }
-        };
-        Object.defineProperty(ls, "type", {get:function(){return this.value.type}});
-        Object.defineProperty(ls, "data", {get:function(){return JSON.parse(this.value.data)}});
-        ls.get();
-
-        // #endregion clipboard
-        //#region createContolls
-        function createRowControls(element=canvas) {
-            element.find('.row').addBack('.row').each(function() {
-                var row = $(this);
-                if (row.find('> .ge-tools-drawer').length) { return; }
-
-                var drawer = $('<div class="ge-tools-drawer" />').prependTo(row);
-                let more = $('<div class=\"dropdown-menu\" />');
-
-                createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
-                createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
-                    details.toggle();
-                });
-                createTool(more, 'Add column', 'ge-add-column', 'fa fa-plus-circle', function() {
-                    let a = createColumn(12);
-                    a.appendTo(row);
-                    // row.append(a);
-                    plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"));
-                    console.log("Has been appied")
-                    init();
-                    // self.trigger("webIQGridEditor:change");
-                });
-                createTool(more, 'Copy row', '', 'fa fa-clipboard', function(){
-                    // __d = getJSON(row);
-                    // console.log(__d);
-                    let __c = JSON.stringify(JSON.parse(getJSON(row,true)).rows[0]);
-                    ls.set({type:'row',data:__c});
-                    // * create external function to take over when copying
-                    // let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
-                    // __c = plugin.onCopy(settings,$(col).find('.ge-content'));
-                    // if(__c == false){
-                    //     return "aborted copy";
-                    // }
-                    // if(__c == true){
-                    //     __c = plugin.parse(settings,$(col).find('.ge-content'));
-                    // }
-                    // __t = 'col';
-                    // __p = $(col).find('.ge-content').attr('data-ge-content-type');
-                    // copyToLS(__t,{plugin:__p,data:__c})
-                    // * __c plugin>CONFIG
-                    // * __t plugin>COL/ROW TYPE
-                    // * __p plugin
-                    // * {plugin:__p,type:__t,data:__c}
-                    // * debugger;
-                });
-                createTool(more, 'Paste Col', '', 'fa fa-paste', function(){
-                    if(ls.type=="col"){
-                        // how would i do that
-                        console.log("paste col: ",ls.data);
-                        // let _c = function(data){
-                        //     .append($(data));
-                        //     console.info("success??");
-                        // }
-                        ls.pasteTo(row);
-                    }
-                })
-                createTool(more, 'Remove row', '', 'fa fa-trash-alt', function() {
-                    if (window.confirm('Delete row?')) {
-                        plugins.remove(row,function(){self.trigger("webIQGridEditor:change")},function(){},false);
-                        
-                        // row.slideUp(function() {
-                        //     row.remove();
-                        // });
-                        // self.trigger("webIQGridEditor:change");
-                    }
-                });
-                drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
-                // <!--- § create rows --->
-                // {"name":"type","type":"dropdown","options":["default",{"name":"accordion","settings":[{"name":"open","type":"switch","default":0},{"name":"title","type":"input"}]},{"name":"box","settings":[{"name":"color","type":"dropdown","options":["red","blue"]}]}]}
-                let plugin = plugins.row.getAll();
-                let rowTools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return plugin[a].internal?{"name":a,"settings":plugin[a].internal}:a})}
-                var details = createDetails(row, settings.row_classes, [...settings.row_tools,rowTools]).appendTo(drawer);
-                
-            });
-        }
-
-        function createColControls(element=canvas) {
-            element.find('.column').addBack('.column').each(function() {
-                var col = $(this);
-                if (col.find('> .ge-tools-drawer').length) { return; }
-
-                var drawer = $('<div class="ge-tools-drawer" />').prependTo(col);
-                let more = $("<div class=\"dropdown-menu\"></div>");
-
-                createTool(drawer, 'Move', 'ge-move', 'fa fa-arrows-alt');
-
-                createTool(drawer, 'Make column narrower\n(hold shift for min)', 'ge-decrease-col-width', 'fa fa-minus', function(e) {
-                    var colSizes = settings.valid_col_sizes;
-                    var curColClass = classes.colClasses[classes.curColClassIndex];
-                    var curColSizeIndex = colSizes.indexOf(getColSize(col, curColClass));
-                    var newSize = colSizes[clamp(curColSizeIndex - 1, 0, colSizes.length - 1)];
-                    if (e.shiftKey) {
-                        newSize = colSizes[0];
-                    }
-                    setColSize(col, curColClass, Math.max(newSize, 1));
-                    self.trigger("webIQGridEditor:change");
-                });
-
-                createTool(drawer, 'Make column wider\n(hold shift for max)', 'ge-increase-col-width', 'fa fa-plus', function(e) {
-                    var colSizes = settings.valid_col_sizes;
-                    var curColClass = classes.colClasses[classes.curColClassIndex];
-                    var curColSizeIndex = colSizes.indexOf(getColSize(col, curColClass));
-                    var newColSizeIndex = clamp(curColSizeIndex + 1, 0, colSizes.length - 1);
-                    var newSize = colSizes[newColSizeIndex];
-                    if (e.shiftKey) {
-                        newSize = getColumnSpare(col.parent(),col);
-                        let a = colSizes.indexOf(newSize);
-                        if(a==-1){
-                            let b = 0;
-                            colSizes.forEach(function(c){if(c<newSize){b=c}}); // if size is not valid, go to next down
-                            if(b==0){colSizes.reverse().forEach(function(c){if(c>newSize){b=c}})}; // or wider
-                            newSize = b;
-                        }
-                    }
-                    
-                    setColSize(col, curColClass, Math.min(newSize, classes.MAX_COL_SIZE));
-                    self.trigger("webIQGridEditor:change");
-                });
-
-                createTool(drawer, 'Settings', '', 'fa fa-cog', function() {
-                    details.toggle();
-                });
-
-                createTool(more, 'Add row', 'ge-add-row', 'fa fa-plus-circle', function() {
-                    var row = createRow();
-                    col.append(row);
-                    let a = createColumn(12);
-                    row.append(a);
-                    plugins.col.get(settings.default_col_plugin).init(settings,a.find(".ge-content"))
-                    
-                    init();
-                    // self.trigger("webIQGridEditor:change");
-                });
-
-                createTool(more, 'Copy col', '','fas fa-copy',function(){
-                    // console.log(col);
-                    // console.log(__c);
-                    let __c = getJSON(col,true);
-                    ls.set({type:'col',data:__c});
-                    // let plugin = getColPlugin($(col).find('.ge-content').attr('data-ge-content-type'));
-                    // __c = plugin.onCopy(settings,$(col).find('.ge-content'));
-                    // if(__c == false){
-                    //     return "aborted copy";
-                    // }
-                    // if(__c == true){
-                    //     __c = plugin.parse(settings,$(col).find('.ge-content'));
-                    // }
-                    // __t = 'col';
-                    // __p = $(col).find('.ge-content').attr('data-ge-content-type');
-                    // copyToLS(__t,{plugin:__p,data:__c})
-                    // * __c plugin>CONFIG
-                    // * __t plugin>COL/ROW TYPE
-                    // * __p plugin
-                    // * {plugin:__p,type:__t,data:__c}
-                    // * debugger;
-                })
-
-                createTool(more, 'Paste row', '', 'fas fa-paste', function(){
-                    if(ls.type=='row') {
-                        console.log("paste row: ",ls.data);
-                        ls.pasteTo(col);
-                    }
-                })
-
-                createTool(more, 'Remove col', '', 'fa fa-trash-alt', function() {
-                    if (window.confirm('Delete column?')) {
-                        plugins.remove(col,function(){self.trigger("webIQGridEditor:change")},function(){},true);
-                        // col.animate({
-                        //     opacity: 'hide',
-                        //     width: 'hide',
-                        //     height: 'hide'
-                        // }, 400, function() {
-                        // });
-                    }
-                });
-
-                drawer.append($("<div class=\"btn-group\"><a class=\"ge-add-row\" type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>").append(more));
-
-                let plugin = plugins.col.getAll()
-                let col_tools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){return {"name":a,"settings":plugin[a].settings}||a})}
-                var details = createDetails(col, settings.col_classes, [...settings.col_tools,col_tools]).appendTo(drawer);
-            });
-        }
-        
-        function createTool(drawer, title, className, iconClass, eventHandlers) {
-            var tool = $('<a title="' + title + '" class="' + className + '"><i class="' + iconClass + '"></i> '+(drawer.hasClass("dropdown-menu")?title:'')+'</a>')
-                .appendTo(drawer)
-            ;
-            if (typeof eventHandlers == 'function') {
-                tool.on('click', eventHandlers);
-            }
-            if (typeof eventHandlers == 'object') {
-                $.each(eventHandlers, function(name, func) {
-                    tool.on(name, func);
-                });
-            }
-            return tool;
-        }
-
-        function createDetails(container, cssClasses, customSettings = []) {
-            var detailsDiv = $('<div class="ge-details" />');
-
-            var classGroup = $('<div class="btn-group" />').appendTo(detailsDiv);
-            cssClasses.forEach(function(rowClass) {
-                var btn = $('<a class="btn btn-sm btn-default" />')
-                    .html(rowClass.label)
-                    .attr('title', rowClass.title ? rowClass.title : 'Toggle "' + rowClass.label + '" styling')
-                    .toggleClass('active btn-primary', container.hasClass(rowClass.cssClass))
-                    .on('click', function() {
-                        btn.toggleClass('active btn-primary');
-                        container.toggleClass(rowClass.cssClass, btn.hasClass('active'));
-                    })
-                    .appendTo(classGroup)
-                ;
-            });
-            function g(p,n){
-                return `${p}-${n}`;
-            }
-            function buildFrom(x,parent='value'){
-                let y = undefined;
-                switch(x.type) {
-                    case "dropdown":
-                        y = $(`<select${parent != '' ? ` parent='${parent}'` : ''} name="${x.name}">${x.options.map(function (r) { return `<option${container.attr(g(parent,x.name)) == (r.name||r) ? " selected" : ""} value='${r.name||r}'>${r.name||r}</option>`}).join('')}</select>`).on('change',function(isInit=false){
-                            detailsDiv.find(`[parent=${parent + "-" + x.name}]`).replaceWith(); // Clean Subelements
-                            // unset all previous changes
-                            if(!isInit){
-                                Array.from(container.get(0).attributes).filter(function (f) { return f.name.startsWith(g(parent, x.name) + `-`) }).forEach(function (d) {
-                                    container.removeAttr(d.name);
-                                });
-                            }
-                            let o = $(this);
-                            container.attr(g(parent,x.name), o.val()); // Set Background value
-                            (x.options.filter(function(b){return (b.name||b)==o.val()})[0].settings||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
-                        });
-                        break;
-                    case "switch":
-                        if (container.attr(g(parent, x.name)) == undefined) { container.attr(g(parent, x.name), x.default == undefined ? false : x.default)}; // use default-value
-                        y = $(`<a${parent != '' ? ` parent='${ parent }'` : ''} class="btn btn-sm btn-default" />`)
-                            .html(x.name)
-                            .toggleClass('active btn-primary', container.attr(g(parent, x.name)) == "true")
-                            .on('click', function () {
-                                $(this).toggleClass('active btn-primary');
-                                container.attr(g(parent, x.name), $(this).hasClass('active'));
-                                y.trigger("change");
-                            });
-                        break;
-                    case "input":
-                        y = $(`<input${parent != '' ? ` parent='${parent}'` : ''} placeholder="${x.placeholder||x.name}" type="${x.inputtype||'text'}" value="${container.attr(g(parent, x.name))||x.default||''}"/>`)
-                            .change(function(){
-                                container.attr(g(parent, x.name),$(this).val());
-                            });
-                        break;
-                    default:
-                        throw new Error(`Detail Settings ElementType '${x.type}' unknown!`);
-                        break;
-                }
-                y.appendTo(detailsDiv);
-                y.trigger('change', [true]);
-                y.on('change',function(){self.trigger("webIQGridEditor:change")});
-                return y;
-            }
-            customSettings.forEach(function(elementSettings){
-                buildFrom(elementSettings);
-            });
-            detailsDiv.find("[parent='value'][name='type']").on('change',function(){
-                if(container.hasClass('column')){
-                    // step 1: deinit() old plugin
-                    plugins.col.get(container.find('.ge-content').attr('data-ge-content-type')).deinit(settings, container.find('.ge-content'));
-                    // step 2: DELETE CONTENT (plugin preperation)
-                    container.find('.ge-content').html('');
-                    // step 3: init new module
-                    plugins.col.init(container.find('.ge-content'));
-                }
-            });
-            return detailsDiv;
-        }
-        //#endregion
-
-        function makeSortable(element=canvas) {
-            element.find('.row').addBack('.row').sortable({
-                items: '> .column',
-                connectWith: '.ge-canvas .row',
-                handle: '> .ge-tools-drawer .ge-move',
-                start: sortStart,
-                stop: sortStop,
-                tolerance: 'pointer',
-                helper: 'clone',
-            });
-            element.add(element.find('.column').addBack('.column')).sortable({
-                items: '> .row, > .ge-content',
-                connectsWith: '.ge-canvas, .ge-canvas .column',
-                handle: '> .ge-tools-drawer .ge-move',
-                start: sortStart,
-                stop: sortStop,
-                helper: 'clone',
-            });
-            function sortStart(e, ui) {
-                self.trigger("webIQGridEditor:block");
-                ui.placeholder.css({ height: ui.item.outerHeight()});
-            }
-            function sortStop(e, ui) {
-                self.trigger("webIQGridEditor:change");
-            }
-
-            element.find('.column').addBack('.column').resizable({
-                handles: "e",
-                resize: function(ev,ui){
-                    const s = {cc:{}};
-                    s.mW = ui.element.parent().get(0).getBoundingClientRect().width;
-                    s.cW = ui.size.width;
-                    // s.MI = settings.valid_col_sizes.sort((a,b)=>a-b)[0];
-                    // s.MX = settings.valid_col_sizes.sort((a,b)=>b-a)[0];
-                    s.MX = classes.MAX_COL_SIZE;
-                    s.cc.all = classes.colClasses;
-                    s.cc.key = classes.colClasses[classes.curColClassIndex];
-                    
-                    try{s.cc.index = ui.element.attr('class').split(' ').filter(function(a){return a.match(`^${s.cc.key}\\d+$`)!=null})[0].match('\\d+')[0];
-                    } catch(e){debugger}
-                    const r = {};
-                    r.apr = s.cW / (s.mW / s.MX);
-                    r.est = Math.round(r.apr);
-                    r.closestTo = function(value,list){
-                        // list = list.filter((a,b)=>b%2==1);
-                        let index = list.indexOf(value);
-                        if (index==-1){
-                            let low = (list.filter(function(v){return v>value})[0]);
-                            let upper = (list.filter(function(v){return v<value}).pop())||s.MX;
-                            if(!(low && upper)){return low||upper;}
-                            return upper-value < value-low?upper:low;
-                        } else {
-                            return list[index];
-                        }
-                    }
-                    let x = r.closestTo(r.est,settings.valid_col_sizes);
-                    if(x!=s.cc.index){
-                        ui.element.removeClass(s.cc.key+s.cc.index);
-                        ui.element.addClass(s.cc.key+x);
-                    }
-                },
-                stop: function(ev,ui){
-                    ui.element.removeAttr('style');
-                    self.trigger("webIQGridEditor:changed");
-                }
-            })
-        }
-
-        function removeSortable(c) {
-            c.add(c.find('.column')).add(c.find('.row')).sortable('destroy');
-        }
-        //#endregion
-
-        //#region column calculation
-        function getColumnSpare(row,col) {
-            return classes.MAX_COL_SIZE - getColumnSizes(row,col);
-        }
-
-        function getColumnSizes(row,col) {
-            var layout = classes.colClasses[classes.curColClassIndex];
-            var size = 0; // current line
-            let result = 0; // max length
-            let calc = false;
-            row.children('[class*="'+layout+'"]').each(function(i){
-                let me = getColSize($(this),layout);
-                let curr = col.is(this);
-                if(curr){calc=true;result-=me;}
-                if(calc&&size+me>12&&curr){size=0;}
-                if(calc&&size+me>12&&!curr){result+=size;}
-                if(size+me>12){size=0;if(calc){calc=false;return false}}
-                size += me;
-            });
-            if(calc&&size!=0){result+=size;}
-            return result;
-        }
-
-        function addAllColClasses(element=canvas) {
-            element.find('.column, div[class*="col-"]').addBack('.column, div[class*="col-"]').each(function() {
-                var col = $(this);
-
-                var size = 2;
-                var sizes = getColSizes(col);
-                if (sizes.length) {
-                    size = sizes[0].size;
-                }
-
-                var elemClass = col.attr('class');
-                classes.colClasses.forEach(function(colClass) {
-                    if (elemClass.indexOf(colClass) == -1) {
-                        col.addClass(colClass + size);
-                    }
-                });
-
-                col.addClass('column');
-            });
-        }
-        /**
-         * Return the column size for colClass, or a size from a different
-         * class if it was not found.
-         * Returns null if no size whatsoever was found.
-         */
-        function getColSize(col, colClass) {
-            var sizes = getColSizes(col);
-            for (var i = 0; i < sizes.length; i++) {
-                if (sizes[i].colClass == colClass) {
-                    return sizes[i].size;
-                }
-            }
-            if (sizes.length) {
-                return sizes[0].size;
-            }
-            return null;
-        }
-
-        function getColSizes(col) {
-            var result = [];
-            classes.colClasses.forEach(function(colClass) {
-                var re = new RegExp(colClass + '(\\d+)', 'i');
-                if (re.test(col.attr('class'))) {
-                    result.push({
-                        colClass: colClass,
-                        size: parseInt(re.exec(col.attr('class'))[1])
-                    });
-                }
-            });
-            return result;
-        }
-
-        function setColSize(col, colClass, size) {
-            var re = new RegExp('(' + colClass + '(\\d+))', 'i');
-            var reResult = re.exec(col.attr('class'));
-            if (reResult && parseInt(reResult[2]) !== size) {
-                col.switchClass(reResult[1], colClass + size, 50);
-            } else {
-                col.addClass(colClass + size);
-            }
-        }
-
-        function createRow() {
-            return $(`<div class="row" value-type="${settings.default_row_plugin}"/>`);
-        }
-
-        function createColumn(size) {// size : number
-            // console.log(stack(0));
-            let a = $('<div/>')
-                .addClass(classes.colClasses.map(function(c){return c+size;}).join(' '))
-                .attr("value-type",settings.default_col_plugin)
-                .append(createDefaultContentWrapper().html(""));
-            return a;
-                // .find(".ge-content").attr("data-ge-content-type",settings.default_col_plugin)
-                // .append(createDefaultContentWrapper().html(getColPlugin(settings.content_types).initialContent||""))//richtig weil default module genommen wird
-            ;
-        }
-        //#endregion
 
         /**
          * Run custom content filter on init and deinit
@@ -957,34 +790,6 @@ $.fn.gridEditor = function( options ) {
             }
         }
 
-        /**
-         * Wrap column content in <div class="ge-content"> where neccesary
-         */
-        function wrapContent(elements=canvas) {
-            return; // no error!?!?
-            elements.find('.column').each(function() {
-                var col = $(this);
-                var contents = $();
-                col.children().each(function() {
-                    var child = $(this);
-                    if (child.is('.row, .ge-tools-drawer, .ge-content')) {
-                        // doWrap(contents);
-                    } else {
-                        contents = contents.add(child);
-                    }
-                });
-                // doWrap(contents); // do it always?
-            });
-        }
-
-        // function doWrap(contents) { // disabled
-        //     if (contents.length) {
-        //         var container = createDefaultContentWrapper().insertAfter(contents.last());
-        //         contents.appendTo(container);
-        //         contents = $();
-        //     }
-        // }
-
         function createDefaultContentWrapper() {
             return $('<div/>')
                 .addClass('ge-content ge-content-type-' + settings.default_col_plugin)
@@ -1000,10 +805,6 @@ $.fn.gridEditor = function( options ) {
                 canvas.toggleClass(cssClass.col!=""?`ge-layout-${cssClass.col}`:"ge-layout-xs", i == colClassIndex);
             });
         }
-        
-        function clamp(input, min, max) {
-            return Math.min(max, Math.max(min, input));
-        }
 
         function getJSON(element=null,copy=false){
             if(element == null){
@@ -1012,14 +813,11 @@ $.fn.gridEditor = function( options ) {
             runFilter();
             function parseCols(col) {
                 let key = 'value-type-';
-                // let plugin = 'value-plugin-';
-                // console.log("col",col,col.children)
                 rows=Array.from(col.children);rows=rows.filter(function(b){return b.classList.contains("row")});if(rows.length!=0){rows=parseRows(rows).rows;}
                 let l = {
                     "size": Array.from(col.classList).filter(function(b){return b.startsWith("col-")}).join(' '),
                     "type": col.getAttribute("value-type"),
                     "data": Array.from(col.attributes).filter(function(b){return b.name.startsWith(key)}).reduce(function(p,b){return Object.assign(p,{[b.name.substr(key.length)]:b.value})},{}),
-                    // "plugin": Array.from(col.attributes).filter(function(b){return b.name.startsWith(plugin)}).reduce(function(p,b){return Object.assign(p,{[b.name.substr(plugin.length)]:b.value})},{}),
                     "plugin": {},
                     "rows": rows
                 };
@@ -1033,7 +831,6 @@ $.fn.gridEditor = function( options ) {
             function parseRows(x){
                 let key = 'value-type-';
                 return { "rows": x.map(function(row){
-                    // console.log("row",row,row.children)
                     let l = {
                         "id": row.getAttribute("id"),
                         "type": row.getAttribute("value-type"),
@@ -1045,12 +842,10 @@ $.fn.gridEditor = function( options ) {
                     return l;
                 }) }
             }
-            // let a=$(html).get().filter(function(b){return !(b instanceof Text)}) // filter all TextElements between html (\n)
             let v,a=element.get().filter(function(b){return !(b instanceof Text)}) // filter all TextElements between html (\n)
             if($(a).hasClass("row")){
                 v=parseRows(a);
             } else if ($(a).hasClass("column")) {
-                // if(a.length > 1){a=a[0]}
                 v=parseCols(a[0]);
             } else {
                 softError("tried to parse neither row nor column")
@@ -1058,22 +853,21 @@ $.fn.gridEditor = function( options ) {
             if(v == undefined){
                 softError(...a);
             }
-            
             return JSON.stringify(v);
         }
 
-        baseElem.data('grideditor', {
-            init: init,
-            deinit: deinit,
-            remove: remove,
-            getHTML: getHTML,
-            getJSON: getJSON,
-            indicateError: indicateError,
-        });
+        (function gridEditor_data(){
+            baseElem.data('grideditor', {
+                init: init,
+                deinit: deinit,
+                remove: remove,
+                getHTML: getHTML,
+                getJSON: getJSON,
+                indicateError: indicateError,
+            });
+        })()
 
         //#region ERROR HANDLING
-        window.addEventListener('unhandledrejection',isMyFault,{capture:true});"rejection";
-        window.addEventListener('error',isMyFault,{capture:true});"error";
         function isMyFault(a){
             type = JSON.stringify(a.reason||a.message);
             console.warn("Caugth ",a);
@@ -1098,7 +892,9 @@ $.fn.gridEditor = function( options ) {
                 self.html("<p><sup>jquery.grideditor.js</sup><br><strong>An Error Occured. Please contact the Administrator.</strong></p>");"</p><p>";
             }
             $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:(error&&error.error&&error.error.stack?error.error.stack.replace("<","&lt;").replace(">","&gt;").replace("\n","<br>"):'')}`).appendTo(self);
-        }
+        };
+        window.addEventListener('unhandledrejection',isMyFault,{capture:true});"rejection";
+        window.addEventListener('error',isMyFault,{capture:true});"error";
         //#endregion
         //#region EVENT HANDLING
         self.on('webIQGridEditor:block',function(){
@@ -1116,10 +912,8 @@ $.fn.gridEditor = function( options ) {
         init();
 
     };
-    self.each(initOnto)
-
+    self.each(initOnTo)
     return self;
-
 };
 
 $.fn.gridEditor.columnPlugins = {};
