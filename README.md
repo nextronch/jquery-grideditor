@@ -242,7 +242,7 @@ firstInit: function(resolve,reject,settings){
 }
 ```
 **important**: the plugin needs to call `resolve()` or `reject()`  
-if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an [**HARD ERROR** (indicateError)](#indicateError)  
+if `reject(<reason>)` is called, the gridEditor will not initiate **ANY** plugins and understand the response as an [**HARD ERROR** (indicateError)](#indicateerror)  
 
 #### init
 The most important function, the "Creator". His Job is to Build the plugin into the container ( _contentArea_ ).  

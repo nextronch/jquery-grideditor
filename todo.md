@@ -65,3 +65,20 @@ check for Events:
 -- cfc path definable,
 -- hooks für verschiedenes,
 strukturieren
+
+## Latest
+\\\\dev\\home\\webiq_dev6\\www\\admin\\plugins\\grideditor\\jquery.grideditor.C.bildDokumente.js
+dev6.webiq.ch  
+Bilder Hinzufügen  
+Bildvorschau im Grid  
+name: `Bild/Dokument`  
+Grid:  
+- Vorschau der Bilder  
+- Button für Externe Img Editor (Modal)  
+Modal: (plain AJAX)  
+- Media Selector  
+
+delete,
+onpaste,
+autoupdate on close modal,
+globalelement, (colGlobal.cfc)

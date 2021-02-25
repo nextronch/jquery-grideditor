@@ -891,7 +891,7 @@ $.fn.gridEditor = function( options ) {
                 self.parent().find(".ge-mainControls").replaceWith('');
                 self.html("<p><sup>jquery.grideditor.js</sup><br><strong>An Error Occured. Please contact the Administrator.</strong></p>");"</p><p>";
             }
-            $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:(error&&error.error&&error.error.stack?error.error.stack.replace("<","&lt;").replace(">","&gt;").replace("\n","<br>"):'')}`).appendTo(self);
+            $(`<p>${error&&error.type||error||'unknown type'}: ${message.toString()}</p>${stack?`<ul>${stack.map(function(a){return `<li>${a.replace("<","&lt;").replace(">","&gt;")}</li>`;}).join('')}</ul>`:(error&&error.error&&error.error.stack?error.error.stack.replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\n","<br>"):'')}`).appendTo(self);
         };
         window.addEventListener('unhandledrejection',isMyFault,{capture:true});"rejection";
         window.addEventListener('error',isMyFault,{capture:true});"error";
