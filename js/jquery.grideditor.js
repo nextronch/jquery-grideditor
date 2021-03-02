@@ -83,7 +83,7 @@ $.fn.gridEditor = function( options ) {
         'breakpointOrder'   : ["","sm","md","lg","xl"], // bt 4
         'breakpoints'       : [{"col":"lg","type":"Desktop","width":"none"},{"col":"sm","type":"Tablet","width":"800px"},{"col":"","type":"Smartphone","width":"400px"}]
     }, options);
-    // breakpoints sortet after size desc.
+    // breakpoints sorted after size desc.
     // avaliable bp: breakpoints ordered by breakpointOrder
 
     /** Initialize plugin 
@@ -398,7 +398,7 @@ $.fn.gridEditor = function( options ) {
                     let y = undefined;
                     switch(x.type) {
                         case "dropdown":
-                            y = $(`<select${parent != '' ? ` parent='${parent}'` : ''} name="${x.name}">${x.options.map(function (r) { return `<option${container.attr(g(parent,x.name)) == (r.name||r) ? " selected" : ""} value='${r.name||r}'>${r.name||r}</option>`}).join('')}</select>`).on('change',function(isInit=false){
+                            y = $(`${x.label?`<label for="${x.name}">${x.label}:`:""}<select${parent != '' ? ` parent='${parent}'` : ''} name="${x.name}">${x.options.map(function (r) { return `<option${container.attr(g(parent,x.name)) == (r.name||r) ? " selected" : ""} value='${r.name||r}'>${r.name||r}</option>`}).join('')}</select>${x.label?"</label>":""}`).on('change',function(isInit=false){
                                 detailsDiv.find(`[parent=${parent + "-" + x.name}]`).replaceWith(); // Clean Subelements
                                 // unset all previous changes
                                 if(!isInit){
@@ -408,7 +408,7 @@ $.fn.gridEditor = function( options ) {
                                 }
                                 let o = $(this);
                                 container.attr(g(parent,x.name), o.val()); // Set Background value
-                                (x.options.filter(function(b){return (b.name||b)==o.val()})[0].settings||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
+                                ((x.options.filter(function(b){return (b.name||b)==o.val()})[0]||{}).options||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
                             });
                             break;
                         case "switch":

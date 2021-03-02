@@ -78,7 +78,7 @@ Grid:
 Modal: (plain AJAX)  
 - Media Selector  
 
-delete,
-onpaste,
-autoupdate on close modal,
-globalelement, (colGlobal.cfc)
++ delete,
++ onpaste,
++ autoupdate on close modal,
+* globalelement, (colGlobal.cfc)
