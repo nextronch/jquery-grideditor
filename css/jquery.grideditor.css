@@ -312,3 +312,6 @@
   top: 0;
   height: 100%;
 }
+div.column.d-none,div.column.d-md-none,div.column.d-lg-none{
+  display: block !important;
+}

@@ -49,18 +49,27 @@ new_row_layouts: [
 ``` 
 
 #### row_classes & col_classes  
-_Array( PlainObject{ label:String, title?:String, cssClass:String } )_ = `[]`  
-Classes \[ ClassDisplay { label, title?, cssClass } \]  
+_Array( PlainObject{ label:String, title?:String, cssClass?:String, inverted?:String, default?:Boolean } )_ = `[]`  
+Classes \[ ClassDisplay { label, title?, cssClass?, inverted?, default?:false } \]  
+At least one of either `cssClass` or `inverted` needs to be defined (not be empty).  
+If `default == true`, `inverted` must be defined.  
+If `default == false` (default), `cssClass` must be defined.  
 ```javascript
 [row_classes | col_classes] : [ 
     {  
         label : "My Class", 
         title : "make more space around the outside", 
-        cssClass : "add-margin-to-all-sides",
+        cssClass : "add-margin-to-all-sides"
     } , {
         label : "Red Border",
         cssClass : "border-red",
-    } 
+        inverted : "default-border",
+        default : false
+    } , {
+        label : "Show",
+        default : true,
+        inverted : "hide"
+    }
 ],
 ```  
 

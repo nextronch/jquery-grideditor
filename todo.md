@@ -82,3 +82,15 @@ Modal: (plain AJAX)
 + onpaste,
 + autoupdate on close modal,
 * globalelement, (colGlobal.cfc)
+
+
+- show on Smartphone, Tablet, Desktop default on
+- Default an
+- super.call(x) -> extended.x()
+
+- onDelete: suche nach pluginspezifischen variablen, miid: mit regext
+- onVersion: ...
+
+![1]("./Screenshot 2021-03-03 084844.png")
+
+

@@ -379,17 +379,38 @@ $.fn.gridEditor = function( options ) {
             createDetails: function(container, cssClasses, customSettings = []) {
                 var detailsDiv = $('<div class="ge-details" />');
                 var classGroup = $('<div class="btn-group" />').appendTo(detailsDiv);
-                cssClasses.forEach(function(rowClass) {
+
+                cssClasses.forEach(function(colClass) {
+                    colClass.default=!!colClass.default;
+                    if(!((colClass.cssClass && !colClass.default) || (colClass.inverted && colClass.default))){
+                        console.error("col_classes or row_classes settings with label \"%s\" is not a valid option. Not solving will lead to corruption. (Error was thrown!)",colClass.label);
+                        throw -1;
+                    }
                     var btn = $('<a class="btn btn-sm btn-default" />')
-                        .html(rowClass.label)
-                        .attr('title', rowClass.title ? rowClass.title : 'Toggle "' + rowClass.label + '" styling')
-                        .toggleClass('active btn-primary', container.hasClass(rowClass.cssClass))
+                        .html(colClass.label)
+                        .attr('title', colClass.title ? colClass.title : 'Toggle "' + colClass.label + '" styling')
                         .on('click', function() {
                             btn.toggleClass('active btn-primary');
-                            container.toggleClass(rowClass.cssClass, btn.hasClass('active'));
+                            if(colClass.cssClass){
+                                container.toggleClass(colClass.cssClass, btn.hasClass('active'));
+                            }
+                            if(colClass.inverted){
+                                container.toggleClass(colClass.inverted, !btn.hasClass('active'));
+                            }
+                            self.trigger("webIQGridEditor:change");
                         })
                         .appendTo(classGroup)
                     ;
+                    if( !((colClass.cssClass && container.hasClass(colClass.cssClass)) || (colClass.inverted && container.hasClass(colClass.inverted))) ){
+                        if(colClass.default){
+                            if(colClass.cssClass){container.toggleClass(colClass.cssClass,!0);}
+                        } else {
+                            if(colClass.inverted){container.toggleClass(colClass.inverted,!0);}
+                        }
+                    };
+                    if((colClass.cssClass && container.hasClass(colClass.cssClass)) || (colClass.inverted && !container.hasClass(colClass.inverted))){
+                        btn.toggleClass("active btn-primary", true);
+                    }
                 });
                 function g(p,n){
                     return `${p}-${n}`;
@@ -816,6 +837,7 @@ $.fn.gridEditor = function( options ) {
                 rows=Array.from(col.children);rows=rows.filter(function(b){return b.classList.contains("row")});if(rows.length!=0){rows=parseRows(rows).rows;}
                 let l = {
                     "size": Array.from(col.classList).filter(function(b){return b.startsWith("col-")}).join(' '),
+                    "class": settings.col_classes.map(function(a){return [a.cssClass,a.inverted];}).flat().filter(function(a){return col.classList.contains(a);}).join(' '),
                     "type": col.getAttribute("value-type"),
                     "data": Array.from(col.attributes).filter(function(b){return b.name.startsWith(key)}).reduce(function(p,b){return Object.assign(p,{[b.name.substr(key.length)]:b.value})},{}),
                     "plugin": {},
@@ -833,6 +855,7 @@ $.fn.gridEditor = function( options ) {
                 return { "rows": x.map(function(row){
                     let l = {
                         "id": row.getAttribute("id"),
+                        "class": settings.row_classes.map(function(a){return [a.cssClass,a.inverted];}).flat().filter(function(a){return row.classList.contains(a);}).join(' '),
                         "type": row.getAttribute("value-type"),
                         "data": Array.from(row.attributes).filter(function(b){return b.name.startsWith(key)}).reduce(function(p,b){return Object.assign(p,{[b.name.substr(key.length)]:b.value})},{}),
                         "cols": Array.from(row.children).filter(function(a){return !a.classList.contains("ge-tools-drawer")}).map(function(b){return parseCols(b)})||[],
