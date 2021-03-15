@@ -78,7 +78,7 @@ _Array( AttributeContainer )_ = `[]`
 Settings \[ AttributeContainer \]  
 DO NOT use as name 'type', it is already reserved for plugins.
 
-**AttributeContainer:** _PlainObject{ name:String, type:String, &lt;type relevant settings&gt; }_  
+**AttributeContainer:** _PlainObject{ name:String, label:String, type:String, &lt;type relevant settings&gt; }_  
 Type relevant settings:  
 ```
 type : 'dropdown'
@@ -126,7 +126,7 @@ _PlainObject{ &lt;custom Plugin settings&gt; }_ = `{}`
 Custom keys and values for plugins (self care)  
 
 #### lang  
-_String_ = `all`  
+_String_ = `en`  
 Current language used by Plugins for translation  
 If selected language is not preserved by plugin, it will fallback to 'all'.  
 If neither of them is preserved, it will show `untranslated[<lang>][<key>]` (visit [translation](#translation) for usage example)  
@@ -169,6 +169,28 @@ Triggers automaticly after [a certain time (idleTime)](#idleTime) since the last
 `webIQGridEditor:block`  
 Indicates a change is occuring and its **not safe** to transmit now. (Overwrite the Event, or `event.preventDefault()`).  
 Cancels the [changed-event](#changed).  
+
+## Translation in Grideditor  
+Required: _false_  
+You can translate all text seen in the Editor. The Translation is saved in `$.fn.gridEditor.translation.<lang>`.  
+```javascript
+$.fn.gridEditor.translation["en"]={
+    col_add : "Add column",
+    col_copy : "Copy column",
+    col_paste : "Paste column",
+    col_remove : "Remove column",
+    col_remove_confirm : "Delete column?",
+    row_add : "Add row",
+    row_copy : "Copy row",
+    row_paste : "Paste row",
+    row_remove : "Remove row",
+    row_remove_confirm : "Delete row?",
+    settings : "Settings",
+    move : "Move",
+    smaller : "Make column narrower (hold shift for min)",
+    bigger : "Make column wider (hold shift for max)",
+};
+```
 
 # Plugins / Extensions  
 This part shows the structure of Plugins.  
@@ -283,7 +305,7 @@ init:function(settings,contentArea,isFromServer){
 `let defaults = JSON.parse(contentArea.find('[name=plugin]').val()||self.initialContent);`  
 
 #### deinit
-This will destroy the inside of the plugin container, will be called on "delete" and "change" of plugin  
+This will destroy the inside of the plugin container, will be called on "delete" and "change" of plugin-type  
 Required: _true_  
 Expected _return_ Value: _none_  
 Arguments:  
@@ -360,7 +382,7 @@ onPaste: function(settings, contentArea, isFromServer){
 ```
 
 ### Translation  
-Required: _true_  
+Required: _false_  
 You can use custom translations for your plugin.  
 GridEditor provides the function _translate()_ :  
 ```javascript
@@ -373,7 +395,6 @@ jQuery.fn.gridEditor.translate.call( translations, language, key, overwrite_tran
 example: 
 ```javascript
 t:{
-    "all":{"myKey":"fallback field"},
     "en" :{"myKey":"my field"},
     "de" :{"myKey":"Mein Feld"},
 },
@@ -388,7 +409,7 @@ let content = `...<label>${ self.tr(settings.lang,"myKey") }</label>...`;
 ```
 Order of language  
 1. t\[[settings.lang](#lang)\]  
-2. t\['all'\]  
+2. t\['en'\]  
 3. 'untranslated\[ _language_ \]\[ _key_ \]'  
 
 **If a function `tr` is not provided or the function will not return a translated key of `pluginName`, the pluginname will apear as the Structurekey from the `$.fn.gridEditor.<col/row>Plugin` Structure.**  
