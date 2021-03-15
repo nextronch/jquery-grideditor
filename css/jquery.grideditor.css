@@ -312,6 +312,6 @@
   top: 0;
   height: 100%;
 }
-div.column.d-none,div.column.d-md-none,div.column.d-lg-none{
+.ge-canvas div.column.d-none,.ge-canvas div.column.d-md-none,.ge-canvas div.column.d-lg-none{
   display: block !important;
 }

@@ -93,4 +93,5 @@ Modal: (plain AJAX)
 
 ![1]("./Screenshot 2021-03-03 084844.png")
 
+wenn version 5 = 2 bilder hat, und version 4 = 1, ist version 4 live?
 

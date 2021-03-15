@@ -360,7 +360,7 @@ onPaste: function(settings, contentArea, isFromServer){
 ```
 
 ### Translation  
-Required: _false_  
+Required: _true_  
 You can use custom translations for your plugin.  
 GridEditor provides the function _translate()_ :  
 ```javascript
@@ -390,6 +390,8 @@ Order of language
 1. t\[[settings.lang](#lang)\]  
 2. t\['all'\]  
 3. 'untranslated\[ _language_ \]\[ _key_ \]'  
+
+**If a function `tr` is not provided or the function will not return a translated key of `pluginName`, the pluginname will apear as the Structurekey from the `$.fn.gridEditor.<col/row>Plugin` Structure.**  
 
 ### Other Functions  
 These Functions can be accessed from the most locations of the code.  
