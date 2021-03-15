@@ -148,7 +148,7 @@ $g = function( options ) {
                             method: 'onDelete',
                             data: JSON.stringify(plugins.col.get(colPlugin).parse(settings,$(element).find('.ge-content'))),
                             plugin: colPlugin,
-                            gridId: self.data('grid-key')
+                            gridKey: self.data('grid-key')
                         },
                         dataType: 'json',
                         success: function(data){

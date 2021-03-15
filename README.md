@@ -435,5 +435,258 @@ returns the stack from current call (level = 0) or higher (level = n) in an Arra
 #### softError  
 `$.fn.gridEditor.softError(...)`  
 displays an error, without stoping anything
+
+# Documentation for cfcs  
+All cfc-pluginnames need to be the same as the structurekey in `$.fn.gridEditor.<col/row>Plugin.<pluginName>`.  
+Ex: `$.fn.gridEditor.colPlugin.myColumnPlugin={/* ... */}` -> `Colmycolumnplugin.cfc`.  
+## Col  
+```xml
+<cfcomponent exptends="Col">
+
+    <cffunction name="renderFrontend" access="public" returntype="Array">
+        <cfargument name="data" required="true" type="struct">
+
+		<cfset arguments.data=super.validateData(data=arguments.data,overwrite={"plugin"={"myField"=""}})>
+		<cfoutput>
+			<cfsavecontent variable="local.o1">
+				<div class="#arguments.data.size# #arguments.data.class#">
+			</cfsavecontent>
+
+			<cfsavecontent variable="local.o2">
+				<div class="alert alert-danger">no content for plugin: #arguments.data.type#</div>
+			</cfsavecontent>
+
+			<cfsavecontent variable="local.o3">
+				</div>
+			</cfsavecontent>
+		</cfoutput>
+
+		<cfreturn [local.o1,local.o2,local.o3]>
+    </cffunction>
+
+    <cffunction name="renderBackend" access="public" returntype="Array">
+		<cfargument name="data" type="struct" required="true">
+		<cfset arguments.data=super.validateData(data=arguments.data,overwrite={"plugin"={"myField"="undefined"}})>
+		
+		<cfoutput>
+			<cfsavecontent variable="local.o1">
+				<div class="#arguments.data.size# #arguments.data.class#" value-type="#arguments.data.type#" #super.attributeBuilder(arguments.data)# #StructKeyExists(arguments.data,"data")?super.DataAttributeBuilder(arguments.data.data):""#>
+			</cfsavecontent>
+			<cfsavecontent variable="local.o2">
+				<div class="ge-content" data-ge-content-type="#arguments.data.type#">
+					<input name="plugin" type="hidden" value='#serializeJSON(arguments.data.plugin)#'>
+				</div>
+			</cfsavecontent>
+			<cfsavecontent variable="local.o3">
+				</div>
+			</cfsavecontent>
+		</cfoutput>
+		<cfreturn [local.o1,local.o2,local.o3]>
+    </cffunction>
+
+	<cffunction name="onDelete" access="public" returntype="boolean">
+		<cfargument name="data" required="true" type="struct">
+		<cfreturn true>
+	</cffunction>
+
+	<cffunction name="onPaste" returntype="struct">
+		<cfargument name="data" required="true" type="struct">
+		<cfreturn arguments.data>
+	</cffunction>
+	
+	<cffunction name="onVersion" returntype="struct">
+		<cfargument name="data" required="true" type="struct">
+		<cfreturn arguments.data>
+	</cffunction>
+
+    <!-- optional: Remote Functions -->
+    <cffunction name="getVariables" access="remote" returntype="Array" returnformat="JSON">
+		<cfreturn ... >
+    </cffunction>
+</cfcomponent>
+```
+
+### renderFrontend  
+Required: _false_  
+Returns: _Array(3)_  
+Access: _public_  
+
+Arguments:  
+1 data _struct_  
+
+Expected return value:  
+_Array[1]_ precontainer _string_  
+_Array[2]_ content _string_ (row could apear before and/or after this element)  
+_Array[3]_ postcontainer _string_  
+
+### renderBackend
+Required: _false_  
+Returns: _Array(3)_  
+Access: _public_  
+
+Arguments:  
+1 data _struct_  
+
+Expected return value:  
+_Array[1]_ precontainer _string_  
+_Array[2]_ content _string_ (row could apear before and/or after this element)  
+_Array[3]_ postcontainer _string_  
+
+### onDelete  
+Required: _false_  
+Returns: _Boolean(true)_  
+Access: _package_  
+
+Arguments:  
+1 data _struct_  
+2 ? gridKey _string_  
+3 ? version _number_  
+
+Expected return value:  
+_true_ = can Delete now  
+_false_ = prevent Delete  
+
+returnvalues do not prevent deleting plugin when gridKey and version is not `""`  
+
+### onPaste  
+Required: _false_  
+Returns: _struct_  
+Access: _package_  
+
+Arguments:  
+1 data _struct_  
+
+Expected return value:  
+modified copy of data  
+
+### onVersion  
+Required: _false_  
+Returns: _struct_  
+Access: _package_  
+
+Arguments:  
+1 data _struct_  
+
+Expected return value:  
+modified copy of data  
+
+if no `onVersion` is defined, `onPaste()` will be called instead  
+
+### Col Utils  
+Helpfull utils to create ColPlugins.  
+Some may never be used.  
+
+#### attributeBuilder  
+Also in Row  
+Arguments:  
+1 data _struct_  
+Builds attributes from data's keys (one level; gets filtered).  
+Ex: `attributeBuilder({test="hi",foo=2,bar=false})` => `value-test="hi" value-foo=2 value-bar=false `  
+
+#### validateData  
+Arguments:  
+1 data _struct_  
+2 overwrite _struct_  
+Add missing keys.  
+Example (shorten):  
+`validateData({size="col-1",type="text",data={foo=.5}},{data={foo=.3},plugin={content="hello world"}})`  
+=> `{size="...",type="...",data={foo=.5},plugin={content="hello world"},class="...",...}`
+
+#### DataAttributeBuilder  
+Also in Row  
+Arguments:  
+1 data _struct_  
+Builds attributes from `col.data`'s key.  
+Ex: (`col.data = {foo=3,bar=8}`) `DataAttributeBuilder(col.data)` => `value-type-foo="3" value-type-bar="8" `.  
+
+#### PluginAttributeBuilder  
+Arguments:  
+1 data _struct_  
+Same as [DataAttributeBuilder](#dataattributebuilder) but instead of `col.data` it wants `col.plugin` and returns `value-plugin-foo="3" ...`. 
+
+## Row  
+```xml
+<cfcomponent extends="Row">
+
+	<cffunction name="renderFrontend" access="public" returntype="Array">
+		<cfargument name="row" type="struct" required="true">
+		<cfargument name="nextType" type="string" required="true">
+		<cfargument name="lastType" type="string" required="true">
+        
+		<cfoutput>
+			<cfsavecontent variable="local.o1">
+				<div class="row">
+			</cfsavecontent>
+
+			<cfsavecontent variable="local.o2">
+				</div>
+			</cfsavecontent>
+		</cfoutput>
+
+		<cfreturn [local.o1,local.o2]>
+    </cffunction>
+
+	<cffunction name="renderBackend" access="public" returntype="Array">
+		<cfargument name="row" type="struct" required="true">
+		<cfargument name="nextType" type="string" required="true">
+		<cfargument name="lastType" type="string" required="true">
+
+		<cfoutput>
+			<cfsavecontent variable="local.o1">
+				<div class="row" value-type="#arguments.row.type#" id="#arguments.row.id#" #attributeBuilder(arguments.row)# #StructKeyExists(arguments.row,"data")?DataAttributeBuilder(arguments.row.data):""#>
+			</cfsavecontent>
+
+			<cfsavecontent variable="local.o2">
+				</div>
+			</cfsavecontent>
+		</cfoutput>
+
+		<cfreturn [local.o1,local.o2]>
+	</cffunction>
+
+	<cffunction name="onVersion" access="package">
+		<cfargument name="data" required="true" type="struct">
+		<cfreturn data>
+	</cffunction>
+
+	<cffunction name="onDelete" access="public">
+		<cfreturn true>
+	</cffunction>
+
+</cfcomponent>
+```
+
+### renderFrontend  
+Required: _false_  
+Access: _public_  
+Return: _Array(2)_  
+
+Arguments:  
+1 row _struct_  
+2 nextType _string("")_  
+3 lastType _string("")_  
+
+Expected return value:  
+_Array[1]_ precontainer _string_  
+_Array[2]_ postcontainer _string_  
+
+
+### renderBackend  
+Required: _false_  
+Access: _public_  
+Return: _Array(2)_  
+
+Arguments:  
+1 row _struct_  
+2 nextType _string("")_  
+3 lastType _string("")_  
+
+Expected return value:  
+_Array[1]_ precontainer _string_  
+_Array[2]_ postcontainer _string_  
+
+### Row Utils  
+Available Row Utils: `attributeBuilder()` & `DataAttributeBuilder()`  
+Functionality, see in [Col Utils](#col-utils).
 ---  
 Written by Thomas Ensner
