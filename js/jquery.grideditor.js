@@ -282,7 +282,22 @@ $g = function( options ) {
                     });
                     drawer.append($('<div class=\"btn-group\"><a type=\"button\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\"><i class=\"fas fa-caret-down\"></i></a></div>').append(more))
                     let plugin = plugins.row.getAll();
-                    let rowTools = {"name":"type","type":"dropdown","options":Object.keys(plugin).map(function(a){let b=plugins.row.get(a);let label=(b.tr&&b.tr(settings.lang,"pluginName"))||a;return plugin[a].internal?{"name":a,"label":(label=="untranslated[\""+settings.lang+"\"][\"pluginName\"]"?a:label),"settings":plugin[a].internal}:{"name":a,"label":(label=="untranslated[\""+settings.lang+"\"][\"pluginName\"]"?a:label)}})};
+                    let rowTools = {
+                        "name":"type",
+                        "type":"dropdown",
+                        "options": Object.keys(plugin).map(function(a){
+                            let b=plugins.row.get(a);
+                            let label=(b.tr&&b.tr(settings.lang,"pluginName"))||a;
+                            return plugin[a].internal ? {
+                                "name":a,
+                                "label":(label=="untranslated[\""+settings.lang+"\"][\"pluginName\"]"?a:label),
+                                "settings":plugin[a].internal
+                            }:{
+                                "name":a,
+                                "label":(label=="untranslated[\""+settings.lang+"\"][\"pluginName\"]"?a:label)
+                            }
+                        })
+                    };
                     var details = controls.createDetails(row, settings.row_classes, [...settings.row_tools,rowTools]).appendTo(drawer);
                     
                 });
@@ -434,7 +449,7 @@ $g = function( options ) {
                                 }
                                 let o = $(this);
                                 container.attr(g(parent,x.name), o.val()); // Set Background value
-                                ((x.options.filter(function(b){return (b.name||b)==o.val()})[0]||{}).options||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
+                                ((x.options.filter(function(b){return (b.name||b)==o.val()})[0]||{}).settings||[]).forEach(function(c){buildFrom(c,g(parent, x.name))}); // Rebuild Subelements
                             });
                             break;
                         case "switch":
