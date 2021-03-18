@@ -513,6 +513,7 @@ Access: _public_
 
 Arguments:  
 1 data _struct_  
+2 calculatedSize _struct_ (ex: `{"col":12.0,"col-lg":2.5,"col-xl":6.0}`)  
 
 Expected return value:  
 _Array[1]_ precontainer _string_  
@@ -526,6 +527,7 @@ Access: _public_
 
 Arguments:  
 1 data _struct_  
+(not important but here anyways) 2 calculatedSize _struct_  
 
 Expected return value:  
 _Array[1]_ precontainer _string_  
